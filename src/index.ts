@@ -14,11 +14,11 @@ import userRoute from "./routes/user.route";
 import accessControlRoute from "./routes/access-control.route";
 import awsRoutes from "./routes/aws.routes";
 import healthcheckRoute from "./routes/healthcheck.route";
-import {DATABASE_URL, initPrisma} from './config/db.config';
+import {dbConfig, initPrisma} from './config/db.config';
 
 dotenv.config();
 
-process.env.DATABASE_URL = DATABASE_URL;
+console.log('DATABASE_URL:', process.env.DATABASE_URL);
 
 const router = Router()
 

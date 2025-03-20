@@ -26,7 +26,7 @@ const dbConfig: DbConfig = {
 };
 
 // Construct the database URL directly
-const DATABASE_URL = `postgresql://${dbConfig.user}:${dbConfig.password}@${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`;
+// const DATABASE_URL = `postgresql://${dbConfig.user}:${dbConfig.password}@${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`;
 
 // Create a PostgreSQL pool for direct database access if needed
 const pool = new Pool(dbConfig);
@@ -35,7 +35,7 @@ const pool = new Pool(dbConfig);
 const prisma = new PrismaClient({
     datasources: {
         db: {
-            url: DATABASE_URL,
+            url: process.env.DATABASE_URL,
         },
     },
 });
@@ -115,7 +115,6 @@ export {
     prisma,
     pool,
     dbConfig,
-    DATABASE_URL,
     connectWithRetry,
     initPrisma,
     disconnect
