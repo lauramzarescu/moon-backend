@@ -70,7 +70,7 @@ router.use('/v1/aws', awsRoutes);
 
 app.use(router);
 
-const port = process.env.APP_PORT || 8000;
+const port = process.env.APP_PORT || 8001;
 
 initPrisma(5, 5000)
     .then(() => {
