@@ -1,10 +1,13 @@
 # Moon - Cloud Data Aggregator
 
-Moon is a powerful cloud data aggregator that provides a unified interface for managing and monitoring resources across multiple cloud providers including AWS, Google Cloud Platform (GCP), and Digital Ocean.
+Moon is a powerful cloud data aggregator that provides a unified interface for managing and monitoring resources across
+multiple cloud providers including AWS, Google Cloud Platform (GCP), and Digital Ocean.
 
 ## Overview
 
-Moon helps organizations consolidate their cloud infrastructure data into a single dashboard, enabling better visibility and management. With support for two-factor authentication and role-based access control, Moon ensures secure access to your cloud resources.
+Moon helps organizations consolidate their cloud infrastructure data into a single dashboard, enabling better visibility
+and management. With support for two-factor authentication and role-based access control, Moon ensures secure access to
+your cloud resources.
 
 ## Features
 
@@ -53,7 +56,12 @@ Moon helps organizations consolidate their cloud infrastructure data into a sing
     npm run prisma-types
     ```
 
-5. Start the development server:
+5. Run first seed for the root user and organization:
+    ```sh
+   npx ts-node src/prisma/seeds/local-init.seed.ts
+   ```
+
+6. Start the development server:
     ```sh
     npm run start-dev
     ```
@@ -61,6 +69,7 @@ Moon helps organizations consolidate their cloud infrastructure data into a sing
 ### Docker Setup
 
 You can also run Moon using Docker:
+
 ```sh
 docker-compose up -d
 ```
@@ -79,6 +88,7 @@ docker-compose up -d
 ### AWS
 
 Moon integrates with various AWS services including:
+
 - EC2
 - ECS
 - Auto Scaling
