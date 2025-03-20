@@ -1,0 +1,98 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// For the moment, we are only supporting local organizations
+enum OrganizationType {
+  local
+  cloud
+}
+
+enum LoginType {
+  local // email and password
+  saml // SAML 2.0
+}
+
+enum UserRole {
+  root
+  admin
+  user
+}
+
+enum ServiceType {
+  aws
+  digital_ocean
+  gcp
+}
+
+model Organization {
+  id            String           @id @default(uuid())
+  type          OrganizationType @default(local)
+  name          String
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  users         User[]
+  saml          SamlConfig?
+  services      ServicesConfig[]
+  accessControl AccessControl[]
+}
+
+model User {
+  id                String        @id @default(uuid())
+  name              String?
+  email             String        @unique
+  organizationId    String
+  organization      Organization? @relation(fields: [organizationId], references: [id])
+  password          String?
+  loginType         LoginType     @default(local)
+  role              UserRole      @default(user)
+  nameID            String?       @unique
+  nameIDFormat      String?
+  sessionIndex      String?
+  lastLogin         DateTime?
+  // Each object in verifiedDevices contains: { fingerprint: string, lastVerified: string, userAgent?: string }
+  verifiedDevices   Json[]
+  twoFactorSecret   String?
+  twoFactorVerified Boolean       @default(false)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+model SamlConfig {
+  id                             String       @id @default(uuid())
+  entityId                       String
+  metadataUrl                    String
+  serviceProviderX509Certificate String
+  serviceProviderPrivateKey      String
+  createdAt                      DateTime     @default(now())
+  updatedAt                      DateTime     @updatedAt
+  organizationId                 String       @unique
+  organization                   Organization @relation(fields: [organizationId], references: [id])
+}
+
+model ServicesConfig {
+  id             String       @id @default(uuid())
+  type           ServiceType
+  name           String
+  config         Json
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+}
+
+model AccessControl {
+  id             String       @id @default(uuid())
+  email          String       @unique
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  isAllowed      Boolean      @default(true)
+  description    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
