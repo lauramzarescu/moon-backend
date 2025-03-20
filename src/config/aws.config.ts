@@ -14,5 +14,5 @@ export const configuration = {
     maxAttempts: 3,
 };
 
-export const ecsClient = new ECSClient(configuration);
-export const ec2Client = new EC2Client(configuration);
+export const ecsClient = new ECSClient();
+export const ec2Client = new EC2Client();
