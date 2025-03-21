@@ -25,9 +25,11 @@ export class SocketDetailsService {
 
     public async generateClusterDetails(socket: Socket): Promise<void> {
         try {
+            console.log('[INFO] Generating cluster details');
             const cachedData = SocketDetailsService.cache.get(AWS_DATA_CACHE_KEY);
 
             if (cachedData) {
+                console.log('[INFO] Returning cached data');
                 (cachedData as any).updatedOn = new Date().toISOString();
                 socket.emit(SOCKET_EVENTS.CLUSTERS_UPDATE, cachedData);
                 return;
@@ -35,6 +37,8 @@ export class SocketDetailsService {
 
             const instances = await this.ec2Service.getInstances();
             const clusterDetails = await this.ecsService.getClusterDetails(instances);
+
+            console.log('[INFO] Cluster details:', clusterDetails);
 
             const response = {
                 clusters: {
@@ -57,11 +61,13 @@ export class SocketDetailsService {
             //     updatedOn: new Date().toISOString()
             // };
 
+            console.log('[INFO] Caching cluster details');
             SocketDetailsService.cache.set(AWS_DATA_CACHE_KEY, response);
 
             socket.emit(SOCKET_EVENTS.CLUSTERS_UPDATE, response);
         } catch (error) {
             console.error('[ERROR] Failed to generate cluster details:', error);
+            console.log('[ERROR] Failed to generate cluster details:', error);
             socket.emit('clusters-error', {
                 error: 'Failed to fetch cluster information',
                 details: error
