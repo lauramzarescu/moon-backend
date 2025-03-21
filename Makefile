@@ -1,6 +1,6 @@
 # Variables
 IMAGE_NAME = lauramzarescu/moon-v2-backend
-VERSION = v1.0.1
+VERSION = v1.0.6
 DOCKERFILE = .docker/node/Dockerfile
 PLATFORM = linux/amd64
 

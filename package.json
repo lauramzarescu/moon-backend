@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "tsc && node dist/index.js",
+    "build": "tsc --max-old-space-size=4096",
+    "start": "tsc && node dist/index.js --max-old-space-size=4096",
     "start-dev": "tsc && nodemon src/index.ts --max-old-space-size=4096",
     "lint": "eslint . --ext .ts",
     "test": "npm test",
@@ -22,6 +22,7 @@
     "@aws-sdk/client-eventbridge": "^3.750.0",
     "@aws-sdk/client-redshift": "^3.750.0",
     "@aws-sdk/client-scheduler": "^3.750.0",
+    "@aws-sdk/credential-providers": "^3.772.0",
     "@prisma/client": "^6.4.1",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/ua-parser-js": "^0.7.39",
