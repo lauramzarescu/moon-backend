@@ -1,0 +1,41 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Generate version
+        id: version
+        run: |
+          BASE_VERSION=$(grep "VERSION =" Makefile | cut -d "=" -f2 | tr -d ' ')
+          MAJOR_MINOR=$(echo $BASE_VERSION | sed 's/\([^.]*\.[^.]*\)\..*/\1/')
+          
+          # Create new version with GitHub run number as patch version
+          # For example: v1.0.42 where 42 is the run number
+          VERSION="${MAJOR_MINOR}.${GITHUB_RUN_NUMBER}"
+          
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "Generated version: ${VERSION}"
+
+      - name: Build and push multi-platform Docker image
+        run: |
+          make build-push-multi VERSION=${{ env.VERSION }}
+          # Also tag as latest
+          make build-push-multi VERSION=latest
