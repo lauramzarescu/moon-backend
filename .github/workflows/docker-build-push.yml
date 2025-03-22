@@ -24,12 +24,9 @@ jobs:
       - name: Generate version
         id: version
         run: |
-          BASE_VERSION=$(grep "VERSION =" Makefile | cut -d "=" -f2 | tr -d ' ')
-          MAJOR_MINOR=$(echo $BASE_VERSION | sed 's/\([^.]*\.[^.]*\)\..*/\1/')
-          
           # Create new version with GitHub run number as patch version
           # For example: v1.0.42 where 42 is the run number
-          VERSION="${MAJOR_MINOR}.${GITHUB_RUN_NUMBER}"
+          VERSION="1.1.${GITHUB_RUN_NUMBER}"
           
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           echo "Generated version: ${VERSION}"
