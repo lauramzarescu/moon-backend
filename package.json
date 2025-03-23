@@ -9,8 +9,8 @@
     "start-dev": "tsc && nodemon src/index.ts --max-old-space-size=4096",
     "lint": "eslint . --ext .ts",
     "test": "npm test",
-    "prisma-migration": "npx prisma migrate deploy --schema src/prisma/schema.prisma",
-    "prisma-types": "npx prisma generate --schema src/prisma/schema.prisma"
+    "prisma-migration": "npx prisma migrate deploy --schema ./src/prisma/schema.prisma",
+    "prisma-types": "npx prisma generate --schema ./src/prisma/schema.prisma"
   },
   "keywords": [],
   "author": "",

@@ -15,23 +15,23 @@ services:
       - app-network
 
   # Backend API
-#  api:
-#    build:
-#      context: .
-#      dockerfile: .docker/node/Dockerfile
-#    image: lauramzarescu/moon-v2-backend:v1.0.0
-#    container_name: moon-backend
-#    restart: unless-stopped
-#    env_file:
-#      - .env
-#    environment:
-#      NODE_ENV: ${NODE_ENV:-development}
-#    ports:
-#      - "8000:8000"
-#    depends_on:
-#      - postgres
-#    networks:
-#      - app-network
+  api:
+    build:
+      context: .
+      dockerfile: .docker/node/Dockerfile
+    image: lauramzarescu/moon-v2-backend:v1.0.0
+    container_name: moon-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+    networks:
+      - app-network
 
 networks:
   app-network:
