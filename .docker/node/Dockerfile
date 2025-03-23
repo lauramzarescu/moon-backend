@@ -20,10 +20,10 @@ COPY package*.json ./
 # Install dependencies
 RUN npm ci --build-from-source
 
-RUN npm run build
-
 # Copy source code
 COPY . .
+
+RUN npm run build
 
 # Generate Prisma types
 RUN npm run prisma-types
