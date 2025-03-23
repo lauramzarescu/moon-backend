@@ -20,6 +20,8 @@ COPY package*.json ./
 # Install dependencies
 RUN npm ci --build-from-source
 
+RUN npm run build
+
 # Copy source code
 COPY . .
 
@@ -49,7 +51,7 @@ COPY --from=builder --chown=node /build/package*.json /code/
 COPY --from=builder --chown=node /build/dist /code/dist
 #COPY --from=builder --chown=node /build/sc /code/prisma
 
-# Copy application code (adjust paths as needed for your app structure)
+# Copy application code
 COPY --chown=node . /code/
 
 # Copy startup script
