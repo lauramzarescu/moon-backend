@@ -20,13 +20,13 @@ COPY package*.json ./
 # Install dependencies
 RUN npm ci --build-from-source
 
+# Generate Prisma types
+RUN npm run prisma-types
+
 # Copy source code
 COPY . .
 
 RUN npm run build
-
-# Generate Prisma types
-RUN npm run prisma-types
 
 # Production stage
 FROM node:22.4-alpine
