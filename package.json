@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc --max-old-space-size=4096",
+    "build": "tsc",
     "start": "tsc && node dist/index.js --max-old-space-size=4096",
     "start-dev": "tsc && nodemon src/index.ts --max-old-space-size=4096",
     "lint": "eslint . --ext .ts",
