@@ -336,14 +336,13 @@ export class UserController {
     static verifySession2FA = async (req: express.Request, res: express.Response) => {
         try {
             const tempToken = req.headers.authorization;
-            console.log(tempToken)
             if (!tempToken) {
                 res.status(400).json({error: 'No temporary token provided'});
                 return;
             }
 
             const decoded = AuthService.decodeToken(tempToken);
-            console.log(decoded)
+
             if (!decoded.temp) {
                 res.status(400).json({error: 'Invalid token type'});
                 return;
@@ -368,17 +367,15 @@ export class UserController {
                 res.status(400).json({error: 'Invalid verification code'});
                 return;
             }
-            console.log('verified')
             await this.updateVerifiedDevices(decoded.userId, req);
-            console.log('verified2')
             const fullToken = AuthService.createToken(user);
-            console.log(fullToken)
+
             res.cookie('token', fullToken, {
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'strict',
                 expires: moment().add(24, 'h').toDate()
             });
-            console.log('verified3')
+
             res.json({
                 success: true,
                 message: '2FA session verification successful',

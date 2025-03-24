@@ -13,7 +13,7 @@ export class AccessControlController {
         try {
             const {email, description} = req.body;
             const token = AuthService.decodeToken(req.headers.authorization);
-            console.log(token.userId)
+
             const user = await this.userRepository.getOneWhere({id: token.userId});
 
             const validatedData = accessControlCreateSchema.parse({email, description});

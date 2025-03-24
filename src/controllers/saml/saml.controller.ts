@@ -17,6 +17,7 @@ export class SamlController {
     static login = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         try {
             const originUrl = req.headers.referer || process.env.APP_URL;
+            console.log('Origin URL:', originUrl);
             const strategyName = await initializeSamlAuth(originUrl as string);
 
             res.header('Access-Control-Allow-Origin', originUrl || 'http://localhost:5173');
