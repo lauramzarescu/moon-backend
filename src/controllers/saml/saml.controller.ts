@@ -244,6 +244,14 @@ export class SamlController {
         }
 
         try {
+            const token = AuthService.decodeToken(req.headers.authorization);
+            const user = await this.userRepository.getOne(token.userId);
+
+            if (user.twoFactorSecret && user.twoFactorVerified) {
+                res.status(400).json({error: 'You must verify your 2FA before deleting the configuration.'});
+                return;
+            }
+
             const deletedConfig = await this.samlConfigRepository.delete(req.params.id);
             res.json({id: deletedConfig.id});
         } catch (error) {

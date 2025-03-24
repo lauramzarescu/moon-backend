@@ -187,6 +187,11 @@ export class UserController {
                 return;
             }
 
+            if (user.twoFactorSecret && user.twoFactorVerified) {
+                res.status(400).json({error: 'You must verify your 2FA before deleting the configuration.'});
+                return;
+            }
+
             const validatedData = changePasswordSchema.parse(req.body);
 
             const isPasswordValid = await bcrypt.compare(validatedData.currentPassword, user.password);
