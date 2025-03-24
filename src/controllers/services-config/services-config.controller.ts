@@ -21,7 +21,7 @@ export class ServicesConfigController {
                 organizationId: user.organizationId,
                 type: ServiceType.aws
             });
-            const parsedAwsServiceConfig = ServicesConfigHelper.getAWSConfig(awsServiceConfig);
+            const parsedAwsServiceConfig = await ServicesConfigHelper.getAWSConfig(awsServiceConfig);
 
             res.json({aws: parsedAwsServiceConfig} as ServicesConfigResponseInterface);
         } catch (error: any) {

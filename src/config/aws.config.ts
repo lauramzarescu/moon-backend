@@ -29,3 +29,5 @@ const configuration = {
 
 export const ecsClient = new ECSClient(configuration);
 export const ec2Client = new EC2Client(configuration);
+
+console.log(ecsClient)

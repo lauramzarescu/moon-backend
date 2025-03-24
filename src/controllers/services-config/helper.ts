@@ -1,4 +1,5 @@
 import {ServicesConfig} from "@prisma/client";
+import {fromInstanceMetadata} from "@aws-sdk/credential-providers";
 
 export interface AWSConfig {
     accessKeyId: string;
@@ -9,7 +10,7 @@ export interface AWSConfig {
 }
 
 export class ServicesConfigHelper {
-    static getAWSConfig(serviceConfig: ServicesConfig | null): AWSConfig | null {
+    static async getAWSConfig(serviceConfig: ServicesConfig | null): Promise<AWSConfig | null> {
         const config = serviceConfig?.config as unknown as AWSConfig;
 
         if (
@@ -43,6 +44,28 @@ export class ServicesConfigHelper {
             };
         }
 
+        // Finally, try to get credentials from instance metadata (if running on EC2)
+        try {
+            const metadataCredentials = await fromInstanceMetadata({
+                timeout: 1000,
+                maxRetries: 1
+            })();
+
+            const region = process.env.AWS_REGION || 'us-central-1';
+
+            if (metadataCredentials.accessKeyId && metadataCredentials.secretAccessKey) {
+                return {
+                    accessKeyId: metadataCredentials.accessKeyId,
+                    secretAccessKey: this.maskSecretKey(metadataCredentials.secretAccessKey),
+                    region: region,
+                    accountId: metadataCredentials.accountId || 'N/A',
+                    canEdit: false
+                };
+            }
+        } catch (error) {
+            console.log("Not running on EC2 or unable to access instance metadata:", error);
+        }
+
         return null;
     }
 
@@ -59,4 +82,6 @@ export class ServicesConfigHelper {
 
         return `${firstFour}${maskedPart}${lastFour}`;
     }
+
+
 }
