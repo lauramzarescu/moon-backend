@@ -153,12 +153,15 @@ export class ECSService {
             cpu: container.cpu ?? 0,
             memory: container.memory ?? 0,
             environmentVariables: {
-                environment: container.environment?.map((env: any) => ({
+                environment: container.environment?.map((env: { name: string, value: string }) => ({
                     name: env.name ?? '',
                     value: env.value ?? ''
                 })) ?? [],
                 environmentFiles: container.environmentFiles ?? [],
-                secrets: container.secrets ?? []
+                secrets: container.secrets?.map((env: { name: string, valueFrom: string }) => ({
+                    name: env.name ?? '',
+                    value: env.valueFrom ?? ''
+                })) ?? []
             },
         })) ?? []
     }
