@@ -228,8 +228,8 @@ export class UserController {
             }
 
             const validatedData = changePasswordWith2FASchema.parse(req.body);
-
             const isPasswordValid = await bcrypt.compare(validatedData.currentPassword, user.password);
+
             if (!isPasswordValid) {
                 res.status(400).json({error: 'Current password is incorrect'});
                 return;

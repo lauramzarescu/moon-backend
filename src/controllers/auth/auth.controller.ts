@@ -31,7 +31,7 @@ export class AuthController {
                 return;
             }
 
-            const isValidPassword = bcrypt.compare(validatedData.password, user.password);
+            const isValidPassword = await bcrypt.compare(validatedData.password, user.password);
 
             if (!isValidPassword) {
                 res.status(401).json({error: 'Invalid credentials'});
@@ -66,6 +66,7 @@ export class AuthController {
                     status: 'success',
                     requires2FAVerification: false
                 });
+                return;
             }
         } catch (error) {
             console.error(error);
