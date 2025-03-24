@@ -17,7 +17,7 @@ export const io = new Server(httpServer, {
         methods: ["GET", "POST"],
         credentials: true
     },
-    transports: ['polling'],
+    transports: ['polling', 'websocket'],
     allowUpgrades: true
 });
 
