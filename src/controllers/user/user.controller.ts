@@ -14,13 +14,13 @@ import {AuthService} from "../../services/auth.service";
 import {UserHelper} from "./helper";
 import {PaginationHandler} from "../../utils/pagination.util";
 import {prisma} from "../../config/db.config";
-import * as speakeasy from 'speakeasy';
 import * as QRCode from 'qrcode';
 import {OrganizationRepository} from '../../repositories/organization/organization.repository';
 import bcrypt from "bcrypt";
 import {LoginType} from "@prisma/client";
 import {UAParser} from 'ua-parser-js';
 import moment from "moment/moment";
+import * as speakeasy from 'speakeasy';
 
 const TWO_FACTOR_EXPIRATION_DAYS = 7;
 

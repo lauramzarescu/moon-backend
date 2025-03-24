@@ -7,6 +7,10 @@ export const samlConfigSchema = z.object({
     entityId: z.string().min(1),
 });
 
+export const samlConfigDeleteWith2FASchema = z.object({
+    code: z.string().min(1),
+});
+
 export const samlConfigUpdateSchema = z.object({
     metadataUrl: z.string().url().optional(),
     privateKey: z.string().min(1).optional(),

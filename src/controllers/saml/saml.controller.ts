@@ -5,10 +5,11 @@ import {SamlConfig, User} from "@prisma/client";
 import {SamlConfigRepository} from "../../repositories/saml-config/saml-config.repository";
 import {AuthService} from "../../services/auth.service";
 import {UserRepository} from "../../repositories/user/user.repository";
-import {samlConfigSchema, samlConfigUpdateSchema} from "./saml-config.schema";
+import {samlConfigDeleteWith2FASchema, samlConfigSchema, samlConfigUpdateSchema} from "./saml-config.schema";
 import {SamlService} from "../../services/saml.service";
 import {Strategy} from "passport-saml";
 import {prisma} from "../../config/db.config";
+import * as speakeasy from 'speakeasy';
 
 export class SamlController {
     static samlConfigRepository = new SamlConfigRepository(prisma);
@@ -244,11 +245,56 @@ export class SamlController {
 
         try {
             const deletedConfig = await this.samlConfigRepository.delete(req.params.id);
-            console.log('SAML config deleted');
-            res.json(deletedConfig);
+            res.json({id: deletedConfig.id});
         } catch (error) {
             console.error(error);
             res.status(500).json({error: 'Failed to delete SAML configuration'});
         }
     }
+
+    static delete2FAConfiguration = async (req: express.Request, res: express.Response) => {
+        try {
+            const token = AuthService.decodeToken(req.headers.authorization);
+            const user = await this.userRepository.getOne(token.userId);
+
+            if (!user.twoFactorSecret || !user.twoFactorVerified) {
+                res.status(400).json({error: '2FA is not enabled or verified for this account'});
+                return;
+            }
+
+            const validatedData = samlConfigDeleteWith2FASchema.parse(req.body);
+
+            const verified = speakeasy.totp.verify({
+                secret: user.twoFactorSecret,
+                encoding: 'base32',
+                token: validatedData.code
+            });
+
+            if (!verified) {
+                res.status(400).json({error: 'Invalid 2FA verification code'});
+                return;
+            }
+
+            const samlConfig = await this.samlConfigRepository.findOneWhere({
+                organizationId: user.organizationId
+            });
+
+            if (!samlConfig) {
+                res.status(404).json({error: 'SAML configuration not found'});
+                return;
+            }
+
+            const deletedConfig = await this.samlConfigRepository.delete(samlConfig.id);
+
+            res.json({
+                success: true,
+                message: 'SAML configuration deleted successfully with 2FA verification',
+                id: deletedConfig.id
+            });
+        } catch (error: any) {
+            console.error('Error deleting SAML configuration with 2FA:', error);
+            res.status(500).json({error: error.message});
+        }
+    }
+
 }

@@ -13,4 +13,6 @@ router.put('/:id', isAuthenticatedGuard([PermissionEnum.SAML_CONFIGURATION_WRITE
 
 router.delete('/:id', isAuthenticatedGuard([PermissionEnum.SAML_CONFIGURATION_DELETE]), SamlController.deleteConfiguration);
 
+router.post('/2fa/:id', isAuthenticatedGuard([PermissionEnum.SAML_CONFIGURATION_DELETE]), SamlController.delete2FAConfiguration);
+
 export default router;
