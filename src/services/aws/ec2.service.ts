@@ -9,7 +9,7 @@ export class EC2Service {
         this.ec2Client = ec2Client;
     }
 
-    public async getInstances(): Promise<InstanceInterface[]> {
+    public getInstances = async (): Promise<InstanceInterface[]> => {
         const instanceResponse = await backoffAndRetry(() =>
             this.ec2Client.send(new DescribeInstancesCommand({}))
         );
@@ -17,7 +17,7 @@ export class EC2Service {
         return this.mapInstances(instanceResponse);
     }
 
-    private mapInstances(instanceResponse: any): InstanceInterface[] {
+    private mapInstances = (instanceResponse: any): InstanceInterface[] => {
         const reservations = instanceResponse.Reservations || [];
         const instances = reservations.flatMap((r: any) => r.Instances || []);
 

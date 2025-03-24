@@ -7,7 +7,8 @@ export const serviceUpdateCountSchema = z.object({
 })
 
 export const serviceUpdateImageSchema = z.object({
-    taskDefinitionArn: z.string().min(1, 'Task definition ARN is required'),
+    clusterName: z.string().min(1, 'Cluster name is required'),
+    serviceName: z.string().min(1, 'Service name is required'),
     containerName: z.string().min(1, 'Container name is required'),
     newImageUri: z.string().min(1, 'New image URI is required')
 })

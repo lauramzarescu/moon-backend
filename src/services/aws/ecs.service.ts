@@ -5,6 +5,7 @@ import {
     ECSClient,
     ListClustersCommand,
     ListServicesCommand,
+    RegisterTaskDefinitionCommand,
     UpdateServiceCommand
 } from "@aws-sdk/client-ecs"
 import {backoffAndRetry} from '../../utils/backoff.util'
@@ -21,7 +22,7 @@ export class ECSService {
         this.schedulerService = new SchedulerService();
     }
 
-    public async getEnvironmentVariables(taskDefinitionArn: string) {
+    public getEnvironmentVariables = async (taskDefinitionArn: string) => {
         const response = await backoffAndRetry(() =>
             this.ecsClient.send(new DescribeTaskDefinitionCommand({
                 taskDefinition: taskDefinitionArn
@@ -41,7 +42,7 @@ export class ECSService {
         }))
     }
 
-    public async getClusterServices(clusterName: string): Promise<ServiceInterface[]> {
+    public getClusterServices = async (clusterName: string): Promise<ServiceInterface[]> => {
         const servicesResponse = await backoffAndRetry(() =>
             this.ecsClient.send(new ListServicesCommand({cluster: clusterName}))
         )
@@ -85,7 +86,7 @@ export class ECSService {
         return services
     }
 
-    public async getClusterDetails(instances: any[]): Promise<ClusterInterface[]> {
+    public getClusterDetails = async (instances: any[]): Promise<ClusterInterface[]> => {
         const clusters = await backoffAndRetry(() =>
             this.ecsClient.send(new ListClustersCommand({}))
         )
@@ -113,7 +114,7 @@ export class ECSService {
         return clusterDetails
     }
 
-    public async updateServiceDesiredCount(clusterName: string, serviceName: string, desiredCount: number): Promise<void> {
+    public updateServiceDesiredCount = async (clusterName: string, serviceName: string, desiredCount: number): Promise<void> => {
         await backoffAndRetry(() =>
             this.ecsClient.send(new UpdateServiceCommand({
                 cluster: clusterName,
@@ -123,7 +124,116 @@ export class ECSService {
         )
     }
 
-    private mapServiceDetails(service: any, taskResponse: any, clusterName: string): ServiceInterface {
+    /**
+     * Updates a service's container image by creating a new task definition revision
+     * and updating the service to use it
+     *
+     * @param clusterName - The name of the ECS cluster
+     * @param serviceName - The name of the service to update
+     * @param containerName - The name of the container to update
+     * @param newImageUri - The new Docker image URI (e.g., "nginx:latest")
+     * @returns The ARN of the new task definition
+     */
+    public updateServiceContainerImage = async (
+        clusterName: string,
+        serviceName: string,
+        containerName: string,
+        newImageUri: string
+    ): Promise<string> => {
+        // 1. Get the current service details to find the task definition
+        const serviceDetails = await backoffAndRetry(() =>
+            this.ecsClient.send(new DescribeServicesCommand({
+                cluster: clusterName,
+                services: [serviceName]
+            }))
+        );
+
+        const service = serviceDetails.services?.[0];
+        if (!service) {
+            throw new Error(`Service ${serviceName} not found in cluster ${clusterName}`);
+        }
+
+        const currentTaskDefinitionArn = service.taskDefinition;
+        if (!currentTaskDefinitionArn) {
+            throw new Error('Task definition not found for service');
+        }
+
+        // 2. Get the current task definition
+        const taskDefResponse = await backoffAndRetry(() =>
+            this.ecsClient.send(new DescribeTaskDefinitionCommand({
+                taskDefinition: currentTaskDefinitionArn
+            }))
+        );
+
+        const taskDef = taskDefResponse.taskDefinition;
+        if (!taskDef) {
+            throw new Error(`Task definition ${currentTaskDefinitionArn} not found`);
+        }
+
+        // 3. Create a new task definition with the updated image
+        const containerDefs = [...(taskDef.containerDefinitions || [])];
+
+        // Find the container to update
+        const containerIndex = containerDefs.findIndex(container => container.name === containerName);
+        if (containerIndex === -1) {
+            throw new Error(`Container ${containerName} not found in task definition`);
+        }
+
+        // Update the container image
+        containerDefs[containerIndex] = {
+            ...containerDefs[containerIndex],
+            image: newImageUri
+        };
+
+        // 4. Register the new task definition
+        const registerParams: any = {
+            family: taskDef.family,
+            taskRoleArn: taskDef.taskRoleArn,
+            executionRoleArn: taskDef.executionRoleArn,
+            networkMode: taskDef.networkMode,
+            containerDefinitions: containerDefs,
+            volumes: taskDef.volumes,
+            placementConstraints: taskDef.placementConstraints,
+            requiresCompatibilities: taskDef.requiresCompatibilities,
+            cpu: taskDef.cpu,
+            memory: taskDef.memory,
+            pidMode: taskDef.pidMode,
+            ipcMode: taskDef.ipcMode,
+            proxyConfiguration: taskDef.proxyConfiguration,
+            inferenceAccelerators: taskDef.inferenceAccelerators,
+            ephemeralStorage: taskDef.ephemeralStorage,
+            runtimePlatform: taskDef.runtimePlatform
+        };
+
+        // Remove undefined properties to avoid API errors
+        Object.keys(registerParams).forEach(key => {
+            if (registerParams[key] === undefined) {
+                delete registerParams[key];
+            }
+        });
+
+        const newTaskDefResponse = await backoffAndRetry(() =>
+            this.ecsClient.send(new RegisterTaskDefinitionCommand(registerParams))
+        );
+
+        const newTaskDefArn = newTaskDefResponse.taskDefinition?.taskDefinitionArn;
+        if (!newTaskDefArn) {
+            throw new Error('Failed to register new task definition');
+        }
+
+        // 5. Update the service to use the new task definition
+        await backoffAndRetry(() =>
+            this.ecsClient.send(new UpdateServiceCommand({
+                cluster: clusterName,
+                service: serviceName,
+                taskDefinition: newTaskDefArn
+            }))
+        );
+
+        return newTaskDefArn;
+    }
+
+    private mapServiceDetails = (service: any, taskResponse: any, clusterName: string): ServiceInterface => {
         return {
             name: service.serviceName ?? 'N/A',
             clusterName: clusterName,
@@ -146,7 +256,7 @@ export class ECSService {
         }
     }
 
-    private mapContainerDefinitions(taskResponse: any) {
+    private mapContainerDefinitions = (taskResponse: any) => {
         return taskResponse.taskDefinition?.containerDefinitions?.map((container: any) => ({
             name: container.name ?? '',
             image: container.image ?? '',
@@ -166,7 +276,7 @@ export class ECSService {
         })) ?? []
     }
 
-    private mapDeployments(deployments: any[]) {
+    private mapDeployments = (deployments: any[]) => {
         return deployments?.map((deployment: any) => ({
             status: deployment.status ?? '',
             desiredCount: deployment.desiredCount ?? 0,
@@ -180,7 +290,7 @@ export class ECSService {
         })) ?? []
     }
 
-    private mapClusterDetails(cluster: any, services: ServiceInterface[], scheduledTasks: any): ClusterInterface {
+    private mapClusterDetails = (cluster: any, services: ServiceInterface[], scheduledTasks: any): ClusterInterface => {
         return {
             name: cluster.clusterName ?? 'N/A',
             arn: cluster.clusterArn ?? 'N/A',
@@ -194,4 +304,3 @@ export class ECSService {
         }
     }
 }
-

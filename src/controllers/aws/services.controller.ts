@@ -1,7 +1,7 @@
 import {Request, Response} from 'express';
 import {ECSService} from '../../services/aws/ecs.service';
 import {ecsClient} from '../../config/aws.config';
-import {serviceUpdateCountSchema} from "./service.schema";
+import {serviceUpdateCountSchema, serviceUpdateImageSchema} from "./service.schema";
 
 export class ServicesController {
     private readonly ecsService: ECSService;
@@ -29,6 +29,40 @@ export class ServicesController {
         } catch (error) {
             const errorResponse = {
                 error: 'Failed to update service desired count',
+                details: error
+            };
+            res.status(500).json(errorResponse);
+        }
+    }
+
+    public updateServiceContainerImage = async (req: Request, res: Response) => {
+        try {
+            const {
+                clusterName,
+                serviceName,
+                containerName,
+                newImageUri
+            } = serviceUpdateImageSchema.parse(req.body);
+
+            const newTaskDefinitionArn = await this.ecsService.updateServiceContainerImage(
+                clusterName,
+                serviceName,
+                containerName,
+                newImageUri
+            );
+            
+            res.json({
+                message: 'Service container image updated successfully',
+                clusterName,
+                serviceName,
+                containerName,
+                newImageUri,
+                newTaskDefinitionArn
+            });
+        } catch
+            (error) {
+            const errorResponse = {
+                error: 'Failed to update service container image',
                 details: error
             };
             res.status(500).json(errorResponse);

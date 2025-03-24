@@ -9,7 +9,7 @@ export class SchedulerService {
         this.eventBridge = new EventBridgeClient({region: process.env.AWS_REGION});
     }
 
-    public async getECSScheduledTasks(clusterName: string): Promise<ScheduledTaskInterface[]> {
+    public getECSScheduledTasks = async (clusterName: string): Promise<ScheduledTaskInterface[]> => {
         try {
             const rulesResponse = await this.eventBridge.send(new ListRulesCommand({}));
             const filteredTasks = rulesResponse.Rules?.filter(rule => rule.ScheduleExpression) || [];
@@ -21,7 +21,7 @@ export class SchedulerService {
         }
     }
 
-    public async getRuleDetails(ruleArn: string, eventBusName = "default") {
+    public getRuleDetails = async (ruleArn: string, eventBusName = "default") => {
         try {
             const command = new DescribeRuleCommand({
                 Name: ruleArn,
@@ -35,7 +35,7 @@ export class SchedulerService {
         }
     }
 
-    private mapScheduledTasks(rules: any[]): ScheduledTaskInterface[] {
+    private mapScheduledTasks = (rules: any[]): ScheduledTaskInterface[] => {
         return rules.map(rule => {
             const readableCron = parseCronToHumanReadable(rule.ScheduleExpression || '');
 

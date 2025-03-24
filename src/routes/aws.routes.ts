@@ -11,4 +11,6 @@ router.get('/clusters', clustersController.getClusters);
 
 router.put('/services/desired-count', servicesController.updateServiceDesiredCount);
 
+router.put('/services/container-image', servicesController.updateServiceContainerImage);
+
 export default router;
