@@ -233,6 +233,16 @@ export class ECSService {
         return newTaskDefArn;
     }
 
+    public restartService = async (clusterName: string, serviceName: string): Promise<void> => {
+        await backoffAndRetry(() =>
+            this.ecsClient.send(new UpdateServiceCommand({
+                cluster: clusterName,
+                service: serviceName,
+                forceNewDeployment: true
+            }))
+        )
+    }
+
     private mapServiceDetails = (service: any, taskResponse: any, clusterName: string): ServiceInterface => {
         return {
             name: service.serviceName ?? 'N/A',

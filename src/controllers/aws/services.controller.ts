@@ -1,7 +1,7 @@
 import {Request, Response} from 'express';
 import {ECSService} from '../../services/aws/ecs.service';
 import {ecsClient} from '../../config/aws.config';
-import {serviceUpdateCountSchema, serviceUpdateImageSchema} from "./service.schema";
+import {serviceRestartSchema, serviceUpdateCountSchema, serviceUpdateImageSchema} from "./service.schema";
 
 export class ServicesController {
     private readonly ecsService: ECSService;
@@ -50,7 +50,7 @@ export class ServicesController {
                 containerName,
                 newImageUri
             );
-            
+
             res.json({
                 message: 'Service container image updated successfully',
                 clusterName,
@@ -63,6 +63,25 @@ export class ServicesController {
             (error) {
             const errorResponse = {
                 error: 'Failed to update service container image',
+                details: error
+            };
+            res.status(500).json(errorResponse);
+        }
+    }
+
+    public restartService = async (req: Request, res: Response) => {
+        try {
+            const {clusterName, serviceName} = serviceRestartSchema.parse(req.body);
+            await this.ecsService.restartService(clusterName, serviceName);
+
+            res.json({
+                message: 'Service restarted successfully',
+                clusterName,
+                serviceName
+            })
+        } catch (error) {
+            const errorResponse = {
+                error: 'Failed to restart service',
                 details: error
             };
             res.status(500).json(errorResponse);

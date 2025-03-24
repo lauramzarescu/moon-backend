@@ -13,4 +13,6 @@ router.put('/services/desired-count', servicesController.updateServiceDesiredCou
 
 router.put('/services/container-image', servicesController.updateServiceContainerImage);
 
+router.post('/services/restart', servicesController.restartService);
+
 export default router;
