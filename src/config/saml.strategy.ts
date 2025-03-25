@@ -28,7 +28,6 @@ passport.deserializeUser(async (id: string, done) => {
 // Create a function to generate strategy based on tenant/user
 const createSamlStrategy = async (samlConfig: SamlConfig, strategyName: string) => {
     const results = await SamlService.extractSamlIdpInfo(samlConfig.metadataUrl);
-
     const dynamicSamlConfig = {
         name: strategyName,
 
@@ -84,6 +83,7 @@ const createSamlStrategy = async (samlConfig: SamlConfig, strategyName: string) 
 const initializeSamlAuth = async (samlIdentifier: string) => {
     const samlConfig = await samlConfigRepository.getOneWhere({entityId: samlIdentifier});
     const strategyName = SamlService.buildSamlStrategyName(samlConfig.id);
+
     await createSamlStrategy(samlConfig, strategyName);
 
     return strategyName;

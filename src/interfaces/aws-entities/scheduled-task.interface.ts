@@ -8,4 +8,5 @@ export interface ScheduledTaskInterface {
     readableCron?: string;
     nextRun?: string;
     nextRuns?: string[];
+    clusterName: string;
 }

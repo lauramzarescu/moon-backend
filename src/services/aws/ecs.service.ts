@@ -100,12 +100,12 @@ export class ECSService {
         const clusterDetails: ClusterInterface[] = []
 
         for (const cluster of clusterResponse.clusters ?? []) {
-            if (!cluster.clusterName) {
+            if (!cluster.clusterName || !cluster.clusterArn) {
                 console.log('Cluster name is undefined')
                 continue;
             }
 
-            const scheduledTasks = await this.schedulerService.getECSScheduledTasks(cluster.clusterName);
+            const scheduledTasks = await this.schedulerService.getECSScheduledTasks(cluster.clusterArn, cluster.clusterName);
             const services = await this.getClusterServices(cluster.clusterName)
 
             clusterDetails.push(this.mapClusterDetails(cluster, services, scheduledTasks))
