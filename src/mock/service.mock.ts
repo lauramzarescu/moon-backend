@@ -13,7 +13,8 @@ const generateScheduledTask = (index: number): ScheduledTaskInterface => ({
     nextRun: new Date(Date.now() + Math.floor(Math.random() * 86400000)).toISOString(),
     nextRuns: Array.from({length: 10}, (_, i) =>
         new Date(Date.now() + (i + 1) * 86400000).toISOString()
-    )
+    ),
+    clusterName: `cluster-${index}`,
 });
 
 const generateService = (index: number): ServiceInterface => ({
