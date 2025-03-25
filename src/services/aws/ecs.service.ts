@@ -12,14 +12,17 @@ import {backoffAndRetry} from '../../utils/backoff.util'
 import {ClusterInterface} from "../../interfaces/aws-entities/cluster.interface";
 import {ServiceInterface} from "../../interfaces/aws-entities/service.interface";
 import {SchedulerService} from "./scheduler.service";
+import {DeploymentMonitorService} from "./deployment-monitor.service";
 
 export class ECSService {
     private readonly ecsClient: ECSClient;
-    private readonly schedulerService: SchedulerService
+    private readonly schedulerService: SchedulerService;
+    private readonly deploymentMonitorService: DeploymentMonitorService;
 
     constructor(ecsClient: ECSClient) {
         this.ecsClient = ecsClient;
         this.schedulerService = new SchedulerService();
+        this.deploymentMonitorService = new DeploymentMonitorService(ecsClient);
     }
 
     public getEnvironmentVariables = async (taskDefinitionArn: string) => {
@@ -42,7 +45,15 @@ export class ECSService {
         }))
     }
 
-    public getClusterServices = async (clusterName: string): Promise<ServiceInterface[]> => {
+    public checkForStuckDeployment = async (clusterName: string, serviceName: string) => {
+        return await this.deploymentMonitorService.isDeploymentStuck(clusterName, serviceName);
+    }
+
+    public getServiceTasksInfo = async (clusterName: string, serviceName: string) => {
+        return await this.deploymentMonitorService.getTasksInfo(clusterName, serviceName);
+    }
+
+    public getClusterServices = async (clusterName: string, checkStuckDeployments = true): Promise<ServiceInterface[]> => {
         const servicesResponse = await backoffAndRetry(() =>
             this.ecsClient.send(new ListServicesCommand({cluster: clusterName}))
         )
@@ -79,11 +90,60 @@ export class ECSService {
                     }))
                 )
 
-                services.push(this.mapServiceDetails(service, taskResponse, clusterName))
+                const serviceData = this.mapServiceDetails(service, taskResponse, clusterName);
+
+                if (checkStuckDeployments && service.deployments && service.deployments.length > 1) {
+                    const deploymentStatus = await this.checkForStuckDeployment(clusterName, service.serviceName || '');
+                    if (deploymentStatus.isStuck) {
+                        // Add stuck deployment information to the service data
+                        serviceData.deploymentStatus = {
+                            isStuck: true,
+                            stuckSince: deploymentStatus.details?.startTime,
+                            elapsedTimeMs: deploymentStatus.details?.elapsedTimeMs,
+                            currentImages: deploymentStatus.details?.currentImages || [],
+                            targetImages: deploymentStatus.details?.targetImages || [],
+                        };
+                    }
+                }
+
+                services.push(serviceData);
             }
         }
 
         return services
+    }
+
+    public monitorAndResolveStuckDeployment = async (
+        clusterName: string,
+        serviceName: string,
+        autoResolve = false,
+        timeoutMinutes = 30
+    ) => {
+        const deploymentStatus = await this.checkForStuckDeployment(clusterName, serviceName);
+
+        if (deploymentStatus.isStuck) {
+            console.log(`Detected stuck deployment for service ${serviceName} in cluster ${clusterName}`);
+
+            if (autoResolve) {
+                console.log(`Auto-resolving stuck deployment by forcing a new deployment`);
+                await this.restartService(clusterName, serviceName);
+                return {
+                    wasStuck: true,
+                    resolved: true,
+                    action: 'forced-new-deployment'
+                };
+            }
+
+            return {
+                wasStuck: true,
+                resolved: false,
+                details: deploymentStatus.details
+            };
+        }
+
+        return {
+            wasStuck: false
+        };
     }
 
     public getClusterDetails = async (instances: any[]): Promise<ClusterInterface[]> => {
@@ -263,6 +323,7 @@ export class ECSService {
             },
             containers: this.mapContainerDefinitions(taskResponse),
             deployments: this.mapDeployments(service.deployments),
+            deploymentStatus: undefined
         }
     }
 

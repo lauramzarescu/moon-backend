@@ -12,4 +12,11 @@ export interface ServiceInterface {
     taskDefinition: TaskDefinitionInterface
     containers: ContainerInterface[]
     deployments: DeploymentInterface[]
+    deploymentStatus?: {
+        isStuck: boolean;
+        stuckSince?: Date;
+        elapsedTimeMs?: number;
+        currentImages: { containerName: string, image: string }[];
+        targetImages: { containerName: string, image: string }[];
+    };
 }
