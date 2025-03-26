@@ -254,7 +254,7 @@ export class UserController {
             });
 
             await this.userRepository.update(token.userId, {
-                verifiedDevices: null
+                verifiedDevices: []
             });
 
             res.json({success: true, message: 'Password changed successfully with 2FA verification'});
@@ -422,7 +422,7 @@ export class UserController {
             await this.userRepository.update(token.userId, {
                 twoFactorSecret: null,
                 twoFactorVerified: false,
-                verifiedDevices: null
+                verifiedDevices: []
             });
 
             res.json({success: true, message: '2FA has been disabled'});
