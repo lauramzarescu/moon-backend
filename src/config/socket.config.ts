@@ -39,23 +39,25 @@ interface AuthenticatedSocket extends Socket {
     userInfo?: any;
 }
 
+interface ClientInfo {
+    sockets: AuthenticatedSocket[];
+    timeoutId: NodeJS.Timeout | null;
+    intervalTime: number;
+    isAutomatic: boolean;
+    isExecuting?: boolean;
+}
+
 const updateAllClientIntervals = (newIntervalTime: number) => {
     console.log(`[INTERVAL] Updating all automatic clients to new interval: ${newIntervalTime} seconds`);
     console.log(`[INTERVAL] Current connected clients: ${connectedClients.size}`);
 
-    connectedClients.forEach((client, userId) => {
-
-        if (client.intervalId) {
-            clearInterval(client.intervalId);
+    connectedClients.forEach((client: ClientInfo, userId) => {
+        if (client.timeoutId) {
+            clearTimeout(client.timeoutId);
             client.intervalTime = newIntervalTime * 1000;
 
-            client.intervalId = setInterval(async () => {
-                for (const userSocket of client.sockets) {
-                    if (userSocket.connected) {
-                        await executeWithHealthCheck(userSocket);
-                    }
-                }
-            }, client.intervalTime);
+            // Schedule the next execution
+            scheduleNextExecution(client, userId);
 
             for (const userSocket of client.sockets) {
                 if (userSocket.connected) {
@@ -109,6 +111,33 @@ const executeWithHealthCheck = async (socket: AuthenticatedSocket) => {
     }
 };
 
+const scheduleNextExecution = (client: ClientInfo, userId: string) => {
+    client.timeoutId = setTimeout(async () => {
+        client.isExecuting = true;
+
+        // Execute for each connected socket
+        const executions = [];
+        for (const userSocket of client.sockets) {
+            if (userSocket.connected) {
+                executions.push(executeWithHealthCheck(userSocket));
+            }
+        }
+
+        try {
+            await Promise.all(executions);
+        } catch (error) {
+            console.error(`[ERROR] Error during execution for user ${userId}:`, error);
+        } finally {
+            client.isExecuting = false;
+
+            // Schedule the next execution only if client still exists and has a valid interval
+            if (connectedClients.has(userId) && client.intervalTime > 0) {
+                scheduleNextExecution(client, userId);
+            }
+        }
+    }, client.intervalTime);
+};
+
 io.use((socket: Socket, next) => {
     try {
         console.log(`[AUTH] New connection attempt from ${socket.id}`);
@@ -145,12 +174,13 @@ io.on('connection', async (_socket: Socket) => {
 
     if (!connectedClients.has(userId)) {
         console.log(`[CONNECTION] First connection for user ${userId}`);
-        connectedClients.set(userId, {
+        const clientInfo: ClientInfo = {
             sockets: [socket],
-            intervalId: null,
+            timeoutId: null,
             intervalTime: currentInterval * 1000,
             isAutomatic: true
-        });
+        };
+        connectedClients.set(userId, clientInfo);
     } else {
         console.log(`[CONNECTION] Additional connection for user ${userId}`);
         const client = connectedClients.get(userId);
@@ -164,35 +194,30 @@ io.on('connection', async (_socket: Socket) => {
         console.log(`[INTERVAL] User ${userId} requested interval change to ${intervalTime}s`);
 
         if (client) {
-            if (client.intervalId) {
-                clearInterval(client.intervalId);
+            if (client.timeoutId) {
+                clearTimeout(client.timeoutId);
+                client.timeoutId = null;
             }
 
             // Handle automatic mode (-1)
             if (intervalTime === -1) {
                 client.isAutomatic = true;
-                client.intervalTime = MIN_INTERVAL * 1000;
-                console.log(`[INTERVAL] Setting automatic mode for user ${userId} starting at ${MIN_INTERVAL}s`);
+                client.intervalTime = currentInterval * 1000;
+                console.log(`[INTERVAL] Setting automatic mode for user ${userId} starting at ${currentInterval}s`);
             } else {
                 client.isAutomatic = false;
                 client.intervalTime = intervalTime * 1000;
                 console.log(`[INTERVAL] Setting manual mode for user ${userId} at ${intervalTime}s`);
             }
 
-            socket.emit(SOCKET_EVENTS.INTERVAL_UPDATED, client.intervalTime)
+            socket.emit(SOCKET_EVENTS.INTERVAL_UPDATED, client.intervalTime / 1000);
 
             if (intervalTime === 0) {
-                client.intervalId = null;
                 return;
             }
 
-            client.intervalId = setInterval(async () => {
-                for (const userSocket of client.sockets) {
-                    if (userSocket.connected) {
-                        await executeWithHealthCheck(userSocket);
-                    }
-                }
-            }, client.intervalTime);
+            // Start the setTimeout chain
+            scheduleNextExecution(client, userId);
         }
     });
 
@@ -218,7 +243,9 @@ io.on('connection', async (_socket: Socket) => {
 
             if (client.sockets.length === 0) {
                 console.log(`[DISCONNECT] Cleaning up last connection for user ${userId}`);
-                clearInterval(client.intervalId);
+                if (client.timeoutId) {
+                    clearTimeout(client.timeoutId);
+                }
                 connectedClients.delete(userId);
             } else {
                 console.log(`[DISCONNECT] User ${userId} still has ${client.sockets.length} active connections`);
