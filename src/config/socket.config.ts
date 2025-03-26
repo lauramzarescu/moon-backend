@@ -120,15 +120,14 @@ const scheduleNextExecution = (client: ClientInfo, userId: string) => {
     client.timeoutId = setTimeout(async () => {
         client.isExecuting = true;
 
-        const executions = [];
-        for (const userSocket of client.sockets) {
-            if (userSocket.connected) {
-                executions.push(executeWithHealthCheck(userSocket));
-            }
-        }
-
         try {
-            await Promise.all(executions);
+            console.log(`[EXECUTION] Executing for user ${userId}`);
+
+            for (const userSocket of client.sockets) {
+                if (userSocket.connected) {
+                    await executeWithHealthCheck(userSocket);
+                }
+            }
         } catch (error) {
             console.error(`[ERROR] Error during execution for user ${userId}:`, error);
         } finally {

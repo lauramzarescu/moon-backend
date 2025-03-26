@@ -46,10 +46,10 @@ export class SocketDetailsService {
             },
             updatedOn: new Date().toISOString()
         } as AWSResponseInterface;
-        
+
         console.log('[INFO] Caching cluster details');
         SocketDetailsService.cache.set(AWS_DATA_CACHE_KEY, response);
 
-        socket.emit(SOCKET_EVENTS.CLUSTERS_UPDATE, []);
+        socket.emit(SOCKET_EVENTS.CLUSTERS_UPDATE, response);
     }
 }
