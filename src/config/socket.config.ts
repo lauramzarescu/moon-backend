@@ -28,7 +28,7 @@ const connectedClients = new Map();
 const MIN_INTERVAL = 3;
 const MAX_INTERVAL = 120;
 const INTERVAL_INCREASE_FACTOR = 2;
-const INTERVAL_DECREASE_FACTOR = 0.5;
+const INTERVAL_DECREASE_FACTOR = 1;
 const HEALTH_CHECK_WINDOW = 5;
 
 let currentInterval = MIN_INTERVAL;
@@ -56,7 +56,6 @@ const updateAllClientIntervals = (newIntervalTime: number) => {
             clearTimeout(client.timeoutId);
             client.intervalTime = newIntervalTime * 1000;
 
-            // Schedule the next execution
             scheduleNextExecution(client, userId);
 
             for (const userSocket of client.sockets) {
@@ -104,10 +103,16 @@ const executeWithHealthCheck = async (socket: AuthenticatedSocket) => {
             decreaseInterval();
         }
     } catch (error: any) {
-        console.log(`[ERROR] Execute failed: ${error.name}`);
-        if (error.name === 'ThrottlingException') {
+        console.log(`[ERROR] Execute failed: ${error.message}`);
+        if ((error.message?.toLowerCase().includes('exceeded') ||
+            error.message?.toLowerCase().includes('throttling'))) {
             increaseInterval();
         }
+
+        socket.emit('clusters-error', {
+            error: 'Failed to fetch cluster information',
+            details: error
+        });
     }
 };
 
@@ -115,7 +120,6 @@ const scheduleNextExecution = (client: ClientInfo, userId: string) => {
     client.timeoutId = setTimeout(async () => {
         client.isExecuting = true;
 
-        // Execute for each connected socket
         const executions = [];
         for (const userSocket of client.sockets) {
             if (userSocket.connected) {
@@ -130,7 +134,6 @@ const scheduleNextExecution = (client: ClientInfo, userId: string) => {
         } finally {
             client.isExecuting = false;
 
-            // Schedule the next execution only if client still exists and has a valid interval
             if (connectedClients.has(userId) && client.intervalTime > 0) {
                 scheduleNextExecution(client, userId);
             }
@@ -187,7 +190,7 @@ io.on('connection', async (_socket: Socket) => {
         client.sockets.push(socket);
     }
 
-    await socketDetailsService.generateClusterDetails(socket);
+    await executeWithHealthCheck(socket);
 
     socket.on(SOCKET_EVENTS.INTERVAL_SET, (intervalTime) => {
         const client = connectedClients.get(userId);
@@ -216,7 +219,6 @@ io.on('connection', async (_socket: Socket) => {
                 return;
             }
 
-            // Start the setTimeout chain
             scheduleNextExecution(client, userId);
         }
     });
@@ -224,14 +226,14 @@ io.on('connection', async (_socket: Socket) => {
     socket.on(SOCKET_EVENTS.MANUAL_REFRESH, async () => {
         console.log(`[MANUAL] Manual refresh requested by user ${userId}`);
         if (connectedClients.has(userId)) {
-            await socketDetailsService.generateClusterDetails(socket);
+            await executeWithHealthCheck(socket);
         }
     });
 
     socket.on(SOCKET_EVENTS.CLUSTERS_UPDATE, async () => {
         console.log(`[UPDATE] Cluster update requested by user ${userId}`);
         if (connectedClients.has(userId)) {
-            await socketDetailsService.generateClusterDetails(socket);
+            await executeWithHealthCheck(socket);
         }
     });
 
