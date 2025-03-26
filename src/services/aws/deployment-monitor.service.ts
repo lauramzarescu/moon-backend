@@ -11,7 +11,7 @@ export class DeploymentMonitorService {
     private readonly ecsClient: ECSClient;
     private readonly deploymentTimeoutMs: number;
 
-    constructor(ecsClient: ECSClient, deploymentTimeoutMinutes = 3) {
+    constructor(ecsClient: ECSClient, deploymentTimeoutMinutes = 5) {
         this.ecsClient = ecsClient;
         this.deploymentTimeoutMs = deploymentTimeoutMinutes * 60 * 1000;
     }
@@ -86,8 +86,8 @@ export class DeploymentMonitorService {
                     pendingCount: primaryDeployment.pendingCount || 0,
                     runningCount: primaryDeployment.runningCount || 0,
                     desiredCount: primaryDeployment.desiredCount || 0,
-                    currentImages, // Changed from currentRevision
-                    targetImages   // Changed from targetRevision
+                    currentImages,
+                    targetImages
                 }
             };
         } catch (error) {
@@ -136,7 +136,6 @@ export class DeploymentMonitorService {
      */
     public async getTasksInfo(clusterName: string, serviceName: string) {
         try {
-            // List tasks for the service
             const tasksResponse = await this.ecsClient.send(new ListTasksCommand({
                 cluster: clusterName,
                 serviceName: serviceName
@@ -146,7 +145,6 @@ export class DeploymentMonitorService {
                 return [];
             }
 
-            // Get detailed task information
             const taskDetails = await this.ecsClient.send(new DescribeTasksCommand({
                 cluster: clusterName,
                 tasks: tasksResponse.taskArns
