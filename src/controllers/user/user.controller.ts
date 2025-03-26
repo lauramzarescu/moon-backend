@@ -421,7 +421,8 @@ export class UserController {
 
             await this.userRepository.update(token.userId, {
                 twoFactorSecret: null,
-                twoFactorVerified: false
+                twoFactorVerified: false,
+                verifiedDevices: null
             });
 
             res.json({success: true, message: '2FA has been disabled'});
