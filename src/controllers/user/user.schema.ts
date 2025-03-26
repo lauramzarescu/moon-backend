@@ -35,12 +35,17 @@ export const userDetailsResponseSchema = userSchema
 
 export const userCreateSchema = userSchema
     .omit({
-        lastLogin: true,
+        loginType: true,
         nameID: true,
+        nameIDFormat: true,
+        lastLogin: true,
         sessionIndex: true,
-    }).partial({
+        twoFactorSecret: true,
+        twoFactorVerified: true,
+    })
+    .partial({
         organizationId: true,
-    });
+    })
 
 export const userUpdateSchema = userCreateSchema;
 export const twoFactorVerifySchema = z.object({
@@ -63,3 +68,4 @@ export type UserInput = z.infer<typeof userSchema>;
 export type TwoFactorVerifyInput = z.infer<typeof twoFactorVerifySchema>;
 export type TwoFactorDisableInput = z.infer<typeof twoFactorDisableSchema>;
 export type UserDeviceInfo = z.infer<typeof userDeviceInfoSchema>;
+export type UserCreateInput = z.infer<typeof userCreateSchema>;

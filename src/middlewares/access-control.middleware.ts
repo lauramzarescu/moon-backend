@@ -4,6 +4,7 @@ import {UserRepository} from "../repositories/user/user.repository";
 import {AccessControlHelper} from "../controllers/access-control/helper";
 import {UserInput} from "../controllers/user/user.schema";
 import {prisma} from "../config/db.config";
+import {SamlConfigRepository} from "../repositories/saml-config/saml-config.repository";
 
 /** Only for login endpoint with SAML */
 export const checkAccessControlGuard = async (req: Request, res: Response, next: NextFunction) => {
@@ -40,9 +41,11 @@ export const checkAccessControlPasswordGuard = async (req: Request, res: Respons
         const {email} = req.body;
 
         const userRepository = new UserRepository(prisma);
+        const samlConfigRepository = new SamlConfigRepository(prisma);
         const accessControlHelper = new AccessControlHelper();
 
         const requesterUser = await userRepository.getOneWhere({email});
+        const samlConfig = await samlConfigRepository.findOneWhere({organizationId: requesterUser.organizationId});
 
         /** Allow root users to bypass access control */
         if (requesterUser.role === UserRole.root) {
@@ -50,11 +53,17 @@ export const checkAccessControlPasswordGuard = async (req: Request, res: Respons
             return;
         }
 
-        /** If the access control list is not empty, don't allow login with password */
+        /** If the access control list is not empty and a SAML setup is configured, don't allow login with password */
         const isEnabled = await accessControlHelper.isEnabled(requesterUser.organizationId);
-        if (isEnabled) {
+        if (isEnabled && samlConfig) {
             res.status(403).json({error: 'Login with password disabled for this organization.'});
             return;
+        }
+
+        const isAllowed = await accessControlHelper.checkAccess(email, requesterUser.organizationId);
+        if (!isAllowed) {
+            res.status(403).json({error: 'Access denied.'});
+            return
         }
 
         next();

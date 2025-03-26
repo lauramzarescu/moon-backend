@@ -147,6 +147,7 @@ export class UserController {
 
             const validatedData = userCreateSchema.parse(req.body);
             validatedData.organizationId = requesterUser.organizationId;
+            validatedData.password = await bcrypt.hash(validatedData.password as string, 10);
 
             const user = await this.userRepository.create(validatedData);
 
@@ -250,6 +251,10 @@ export class UserController {
 
             await this.userRepository.update(token.userId, {
                 password: hashedPassword
+            });
+
+            await this.userRepository.update(token.userId, {
+                verifiedDevices: null
             });
 
             res.json({success: true, message: 'Password changed successfully with 2FA verification'});
