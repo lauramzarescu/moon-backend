@@ -25,32 +25,8 @@ export class ECSService {
         this.deploymentMonitorService = new DeploymentMonitorService(ecsClient);
     }
 
-    public getEnvironmentVariables = async (taskDefinitionArn: string) => {
-        const response = await backoffAndRetry(() =>
-            this.ecsClient.send(new DescribeTaskDefinitionCommand({
-                taskDefinition: taskDefinitionArn
-            }))
-        )
-
-        const containerDefArray = response.taskDefinition?.containerDefinitions
-        if (!containerDefArray) {
-            throw new Error('Container definition not found')
-        }
-
-        return containerDefArray.map((containerDef) => ({
-            container: containerDef.name || '',
-            environment: containerDef.environment || [],
-            environmentFiles: containerDef.environmentFiles || [],
-            secrets: containerDef.secrets || []
-        }))
-    }
-
     public checkForStuckDeployment = async (clusterName: string, serviceName: string) => {
         return await this.deploymentMonitorService.isDeploymentStuck(clusterName, serviceName);
-    }
-
-    public getServiceTasksInfo = async (clusterName: string, serviceName: string) => {
-        return await this.deploymentMonitorService.getTasksInfo(clusterName, serviceName);
     }
 
     public getClusterServices = async (clusterName: string, checkStuckDeployments = true): Promise<ServiceInterface[]> => {
@@ -112,40 +88,7 @@ export class ECSService {
 
         return services
     }
-
-    public monitorAndResolveStuckDeployment = async (
-        clusterName: string,
-        serviceName: string,
-        autoResolve = false,
-        timeoutMinutes = 30
-    ) => {
-        const deploymentStatus = await this.checkForStuckDeployment(clusterName, serviceName);
-
-        if (deploymentStatus.isStuck) {
-            console.log(`Detected stuck deployment for service ${serviceName} in cluster ${clusterName}`);
-
-            if (autoResolve) {
-                console.log(`Auto-resolving stuck deployment by forcing a new deployment`);
-                await this.restartService(clusterName, serviceName);
-                return {
-                    wasStuck: true,
-                    resolved: true,
-                    action: 'forced-new-deployment'
-                };
-            }
-
-            return {
-                wasStuck: true,
-                resolved: false,
-                details: deploymentStatus.details
-            };
-        }
-
-        return {
-            wasStuck: false
-        };
-    }
-
+    
     public getClusterDetails = async (instances: any[]): Promise<ClusterInterface[]> => {
         const clusters = await backoffAndRetry(() =>
             this.ecsClient.send(new ListClustersCommand({}))
