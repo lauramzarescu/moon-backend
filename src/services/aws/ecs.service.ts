@@ -161,6 +161,7 @@ export class ECSService {
 
         for (const cluster of clusterResponse.clusters ?? []) {
             if (!cluster.clusterName || !cluster.clusterArn) {
+                console.log('Cluster does not exist')
                 continue;
             }
 
