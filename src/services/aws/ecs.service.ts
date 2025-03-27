@@ -149,7 +149,7 @@ export class ECSService {
     public getClusterDetails = async (instances: any[]): Promise<ClusterInterface[]> => {
         const clusters = await backoffAndRetry(() =>
             this.ecsClient.send(new ListClustersCommand({}))
-        )
+        );
 
         const clusterResponse = await backoffAndRetry(() =>
             this.ecsClient.send(new DescribeClustersCommand({
