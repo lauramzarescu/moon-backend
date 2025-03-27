@@ -8,15 +8,23 @@ on:
 jobs:
   create-pull-request:
     runs-on: ubuntu-latest
-    if: github.event.created == true
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Check if PR exists
+        id: check_pr
+        run: |
+          PR_EXISTS=$(gh pr list --head ${{ github.ref_name }} --base main --json number | jq length)
+          echo "pr_exists=$PR_EXISTS" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v5
+        if: steps.check_pr.outputs.pr_exists == '0'
+        uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GH_TOKEN }}
           commit-message: "Auto PR for branch ${{ github.ref_name }}"
