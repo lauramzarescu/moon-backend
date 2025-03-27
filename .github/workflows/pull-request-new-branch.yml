@@ -17,29 +17,27 @@ jobs:
       - name: Check if PR exists
         id: check_pr
         run: |
-          PR_EXISTS=$(gh pr list --head ${{ github.ref_name }} --base main --json number | jq length)
+          gh auth login --with-token <<< "${{ secrets.GH_TOKEN }}"
+          PR_EXISTS=$(gh pr list --head "${{ github.ref_name }}" --base main --json number | jq length)
           echo "pr_exists=$PR_EXISTS" >> $GITHUB_OUTPUT
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: Create Pull Request
         if: steps.check_pr.outputs.pr_exists == '0'
-        uses: peter-evans/create-pull-request@v7
-        with:
-          token: ${{ secrets.GH_TOKEN }}
-          commit-message: "Auto PR for branch ${{ github.ref_name }}"
-          title: "Auto PR: ${{ github.ref_name }}"
-          body: |
-            ## Automated Pull Request
-            
-            This PR was automatically created for the branch `${{ github.ref_name }}`.
-            
+        run: |
+          gh pr create \
+            --title "Auto PR: ${{ github.ref_name }}" \
+            --body "## Automated Pull Request
+
+            This PR was automatically created for the branch \`${{ github.ref_name }}\`.
+          
             ### Changes
             - Branch: ${{ github.ref_name }}
             - Created by: ${{ github.actor }}
-            - Commit: ${{ github.sha }}
-          base: main
-          branch: ${{ github.ref_name }}
-          draft: false
-          labels: |
-            automated-pr
+            - Commit: ${{ github.sha }}" \
+            --base main \
+            --head "${{ github.ref_name }}" \
+            --label "automated-pr"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
