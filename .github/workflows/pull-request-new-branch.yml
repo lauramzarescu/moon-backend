@@ -1,4 +1,4 @@
-name: Create Pull Request for New Branch
+name: Moon Backend Pull Request
 
 on:
   push:
@@ -6,38 +6,14 @@ on:
       - main
 
 jobs:
-  create-pull-request:
+  create_pull_request:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Check if PR exists
-        id: check_pr
-        run: |
-          gh auth login --with-token <<< "${{ secrets.GH_TOKEN }}"
-          PR_EXISTS=$(gh pr list --head "${{ github.ref_name }}" --base main --json number | jq length)
-          echo "pr_exists=$PR_EXISTS" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-
+      - uses: actions/checkout@v4
       - name: Create Pull Request
-        if: steps.check_pr.outputs.pr_exists == '0'
-        run: |
-          gh pr create \
-            --title "Auto PR: ${{ github.ref_name }}" \
-            --body "## Automated Pull Request
-
-            This PR was automatically created for the branch \`${{ github.ref_name }}\`.
-          
-            ### Changes
-            - Branch: ${{ github.ref_name }}
-            - Created by: ${{ github.actor }}
-            - Commit: ${{ github.sha }}" \
-            --base main \
-            --head "${{ github.ref_name }}" \
-            --label "automated-pr"
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: ${{ github.ref_name }}
+          base: main
+          title: "Pull request from ${{ github.ref_name }}"
+          body: "Automated PR created from branch ${{ github.ref_name }}"
