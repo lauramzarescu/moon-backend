@@ -21,7 +21,7 @@ jobs:
           PR_EXISTS=$(gh pr list --head "${{ github.ref_name }}" --base main --json number | jq length)
           echo "pr_exists=$PR_EXISTS" >> $GITHUB_OUTPUT
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: Create Pull Request
         if: steps.check_pr.outputs.pr_exists == '0'
@@ -40,4 +40,4 @@ jobs:
             --head "${{ github.ref_name }}" \
             --label "automated-pr"
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
