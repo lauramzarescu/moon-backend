@@ -1,0 +1,37 @@
+name: Create Pull Request for New Branch
+
+on:
+  push:
+    branches-ignore:
+      - main
+
+jobs:
+  create-pull-request:
+    runs-on: ubuntu-latest
+    if: github.event.created == true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          commit-message: "Auto PR for branch ${{ github.ref_name }}"
+          title: "Auto PR: ${{ github.ref_name }}"
+          body: |
+            ## Automated Pull Request
+            
+            This PR was automatically created for the branch `${{ github.ref_name }}`.
+            
+            ### Changes
+            - Branch: ${{ github.ref_name }}
+            - Created by: ${{ github.actor }}
+            - Commit: ${{ github.sha }}
+          base: main
+          branch: ${{ github.ref_name }}
+          draft: false
+          labels: |
+            automated-pr
