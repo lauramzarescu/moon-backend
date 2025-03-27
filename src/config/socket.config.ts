@@ -189,8 +189,6 @@ io.on('connection', async (_socket: Socket) => {
         client.sockets.push(socket);
     }
 
-    await executeWithHealthCheck(socket);
-
     socket.on(SOCKET_EVENTS.INTERVAL_SET, (intervalTime) => {
         const client = connectedClients.get(userId);
         console.log(`[INTERVAL] User ${userId} requested interval change to ${intervalTime}s`);
@@ -253,4 +251,6 @@ io.on('connection', async (_socket: Socket) => {
             }
         }
     });
+
+    await executeWithHealthCheck(socket);
 });
