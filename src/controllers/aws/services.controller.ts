@@ -1,7 +1,7 @@
 import {Request, Response} from 'express';
 import {ECSService} from '../../services/aws/ecs.service';
 import {ecsClient} from '../../config/aws.config';
-import {serviceRestartSchema, serviceUpdateCountSchema, serviceUpdateImageSchema} from "./service.schema";
+import {serviceRestartSchema, serviceUpdateCountSchema, serviceUpdateImageSchema} from './service.schema';
 
 export class ServicesController {
     private readonly ecsService: ECSService;
@@ -14,35 +14,26 @@ export class ServicesController {
         try {
             const {clusterName, serviceName, desiredCount} = serviceUpdateCountSchema.parse(req.body);
 
-            await this.ecsService.updateServiceDesiredCount(
-                clusterName,
-                serviceName,
-                desiredCount
-            );
+            await this.ecsService.updateServiceDesiredCount(clusterName, serviceName, desiredCount);
 
             res.json({
                 message: 'Service desired count updated successfully',
                 clusterName,
                 serviceName,
-                desiredCount
+                desiredCount,
             });
         } catch (error) {
             const errorResponse = {
                 error: 'Failed to update service desired count',
-                details: error
+                details: error,
             };
             res.status(500).json(errorResponse);
         }
-    }
+    };
 
     public updateServiceContainerImage = async (req: Request, res: Response) => {
         try {
-            const {
-                clusterName,
-                serviceName,
-                containerName,
-                newImageUri
-            } = serviceUpdateImageSchema.parse(req.body);
+            const {clusterName, serviceName, containerName, newImageUri} = serviceUpdateImageSchema.parse(req.body);
 
             const newTaskDefinitionArn = await this.ecsService.updateServiceContainerImage(
                 clusterName,
@@ -57,17 +48,16 @@ export class ServicesController {
                 serviceName,
                 containerName,
                 newImageUri,
-                newTaskDefinitionArn
+                newTaskDefinitionArn,
             });
-        } catch
-            (error) {
+        } catch (error) {
             const errorResponse = {
                 error: 'Failed to update service container image',
-                details: error
+                details: error,
             };
             res.status(500).json(errorResponse);
         }
-    }
+    };
 
     public restartService = async (req: Request, res: Response) => {
         try {
@@ -77,14 +67,14 @@ export class ServicesController {
             res.json({
                 message: 'Service restarted successfully',
                 clusterName,
-                serviceName
-            })
+                serviceName,
+            });
         } catch (error) {
             const errorResponse = {
                 error: 'Failed to restart service',
-                details: error
+                details: error,
             };
             res.status(500).json(errorResponse);
         }
-    }
+    };
 }

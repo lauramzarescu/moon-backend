@@ -6,5 +6,5 @@ export const SOCKET_EVENTS = {
     INTERVAL_SET: 'set-interval',
 
     MANUAL_REFRESH: 'manual-refresh',
-    DISCONNECT: 'disconnect'
+    DISCONNECT: 'disconnect',
 } as const;

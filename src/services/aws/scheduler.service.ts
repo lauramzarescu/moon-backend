@@ -1,9 +1,14 @@
-import {DescribeRuleCommand, EventBridgeClient, ListRulesCommand, ListRuleNamesByTargetCommand} from "@aws-sdk/client-eventbridge";
-import {ScheduledTaskInterface} from "../../interfaces/aws-entities/scheduled-task.interface";
-import {parseCronToHumanReadable} from "../../utils/cron-parser.util";
-import {DescribeRuleCommandOutput} from "@aws-sdk/client-eventbridge/dist-types/commands/DescribeRuleCommand";
-import {backoffAndRetry} from "../../utils/backoff.util";
-import {UpdateServiceCommand} from "@aws-sdk/client-ecs";
+import {
+    DescribeRuleCommand,
+    EventBridgeClient,
+    ListRulesCommand,
+    ListRuleNamesByTargetCommand,
+} from '@aws-sdk/client-eventbridge';
+import {ScheduledTaskInterface} from '../../interfaces/aws-entities/scheduled-task.interface';
+import {parseCronToHumanReadable} from '../../utils/cron-parser.util';
+import {DescribeRuleCommandOutput} from '@aws-sdk/client-eventbridge/dist-types/commands/DescribeRuleCommand';
+import {backoffAndRetry} from '../../utils/backoff.util';
+import {UpdateServiceCommand} from '@aws-sdk/client-ecs';
 
 export class SchedulerService {
     private readonly eventBridge: EventBridgeClient;
@@ -16,7 +21,9 @@ export class SchedulerService {
         try {
             const detailedRules: DescribeRuleCommandOutput[] = [];
 
-            const rulesResponse = await this.eventBridge.send(new ListRuleNamesByTargetCommand({TargetArn: clusterArn}));
+            const rulesResponse = await this.eventBridge.send(
+                new ListRuleNamesByTargetCommand({TargetArn: clusterArn})
+            );
 
             for (const ruleName of rulesResponse.RuleNames ?? []) {
                 detailedRules.push(await this.getRuleDetails(ruleName));
@@ -24,19 +31,21 @@ export class SchedulerService {
 
             return this.mapScheduledTasks(detailedRules, clusterName);
         } catch (error) {
-            console.error("Error getting scheduled tasks:", error);
+            console.error('Error getting scheduled tasks:', error);
             throw error;
         }
-    }
+    };
 
-    public getRuleDetails = async (ruleArn: string, eventBusName = "default"): Promise<DescribeRuleCommandOutput> => {
+    public getRuleDetails = async (ruleArn: string, eventBusName = 'default'): Promise<DescribeRuleCommandOutput> => {
         return await backoffAndRetry(() =>
-            this.eventBridge.send(new DescribeRuleCommand({
-                Name: ruleArn,
-                EventBusName: eventBusName
-            }))
-        )
-    }
+            this.eventBridge.send(
+                new DescribeRuleCommand({
+                    Name: ruleArn,
+                    EventBusName: eventBusName,
+                })
+            )
+        );
+    };
 
     private mapScheduledTasks = (rules: any[], cluster: string): ScheduledTaskInterface[] => {
         return rules.map(rule => {
@@ -52,8 +61,8 @@ export class SchedulerService {
                 readableCron: readableCron.description,
                 nextRun: readableCron.nextRun,
                 nextRuns: readableCron.nextRuns,
-                clusterName: cluster
+                clusterName: cluster,
             };
         });
-    }
+    };
 }

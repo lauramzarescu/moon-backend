@@ -2,23 +2,23 @@ import express, {Router} from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import {app, httpServer} from './config/socket.config';
-import session from 'express-session'
-import passport from 'passport'
-import authRoute from "./routes/auth.route";
-import samlConfigRoute from "./routes/saml-config.route";
-import helmet from "helmet";
-import organizationRoute from "./routes/organization.route";
-import servicesConfigRoute from "./routes/services-config.route";
-import cookieParser from "cookie-parser";
-import userRoute from "./routes/user.route";
-import accessControlRoute from "./routes/access-control.route";
-import awsRoutes from "./routes/aws.routes";
-import healthcheckRoute from "./routes/healthcheck.route";
+import session from 'express-session';
+import passport from 'passport';
+import authRoute from './routes/auth.route';
+import samlConfigRoute from './routes/saml-config.route';
+import helmet from 'helmet';
+import organizationRoute from './routes/organization.route';
+import servicesConfigRoute from './routes/services-config.route';
+import cookieParser from 'cookie-parser';
+import userRoute from './routes/user.route';
+import accessControlRoute from './routes/access-control.route';
+import awsRoutes from './routes/aws.routes';
+import healthcheckRoute from './routes/healthcheck.route';
 import {initPrisma} from './config/db.config';
 
 dotenv.config();
 
-const router = Router()
+const router = Router();
 
 app.use(helmet());
 app.use((req, res, next) => {
@@ -32,27 +32,26 @@ app.use(express.json({limit: '50mb'}));
 app.use(express.urlencoded({limit: '50mb', extended: true}));
 
 const corsOptions = {
-    origin: [
-        process.env.APP_URL || 'http://localhost:5173',
-        process.env.API_URL || 'http://localhost:3000'
-    ],
+    origin: [process.env.APP_URL || 'http://localhost:5173', process.env.API_URL || 'http://localhost:3000'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
 app.use(cors(corsOptions));
 
-app.use(session({
-    secret: process.env.SESSION_SECRET || 'your-secret-key',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        sameSite: 'strict'
-    }
-}));
+app.use(
+    session({
+        secret: process.env.SESSION_SECRET || 'your-secret-key',
+        resave: false,
+        saveUninitialized: false,
+        cookie: {
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 24 * 60 * 60 * 1000, // 24 hours
+            sameSite: 'strict',
+        },
+    })
+);
 
 app.use(passport.initialize());
 app.use(passport.session());

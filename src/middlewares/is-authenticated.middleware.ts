@@ -1,6 +1,6 @@
-import express from "express";
-import {PermissionEnum} from "../enums/rbac/permission.enum";
-import {AuthService} from "../services/auth.service";
+import express from 'express';
+import {PermissionEnum} from '../enums/rbac/permission.enum';
+import {AuthService} from '../services/auth.service';
 
 export const isAuthenticated = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.log('checking authentication');
@@ -14,7 +14,6 @@ export const isAuthenticated = (req: express.Request, res: express.Response, nex
 
 export const isAuthenticatedGuard = (permissions: PermissionEnum[] = []) => {
     return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-
         const authHeader = req.headers.authorization;
         if (authHeader && authHeader.startsWith('Bearer ')) {
             const token = authHeader.substring(7);
@@ -52,5 +51,5 @@ export const isAuthenticatedGuard = (permissions: PermissionEnum[] = []) => {
         }
 
         res.status(401).json({message: 'Unauthorized'});
-    }
+    };
 };

@@ -1,5 +1,5 @@
-import {z} from "zod";
-import {ServiceType} from "@prisma/client";
+import {z} from 'zod';
+import {ServiceType} from '@prisma/client';
 
 export const servicesConfigSchema = z.object({
     name: z.string().min(1),

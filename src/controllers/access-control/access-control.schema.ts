@@ -5,13 +5,13 @@ export const accessControlSchema = z.object({
     email: z.string().email(),
     organizationId: z.string().uuid(),
     description: z.string().optional(),
-    isAllowed: z.boolean().default(true)
-})
+    isAllowed: z.boolean().default(true),
+});
 
 export const accessControlCreateSchema = accessControlSchema.omit({
     id: true,
     organizationId: true,
-    isAllowed: true
+    isAllowed: true,
 });
 
 export type AccessControlInput = z.infer<typeof accessControlSchema>;

@@ -1,5 +1,5 @@
-import {AccessControlRepository} from "../../repositories/access-control/access-control.repository";
-import {prisma} from "../../config/db.config";
+import {AccessControlRepository} from '../../repositories/access-control/access-control.repository';
+import {prisma} from '../../config/db.config';
 
 const repository = new AccessControlRepository(prisma);
 
@@ -14,7 +14,7 @@ export class AccessControlHelper {
             console.log(error);
             return false;
         }
-    }
+    };
 
     isEnabled = async (organizationId: string): Promise<boolean> => {
         try {
@@ -24,5 +24,5 @@ export class AccessControlHelper {
             console.log(error);
             return false;
         }
-    }
+    };
 }

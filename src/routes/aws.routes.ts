@@ -1,6 +1,6 @@
 import {ClustersController} from '../controllers/aws/clusters.controller';
 import {ServicesController} from '../controllers/aws/services.controller';
-import express from "express";
+import express from 'express';
 
 const router = express.Router();
 

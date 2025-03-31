@@ -111,11 +111,4 @@ async function disconnect(): Promise<void> {
     console.log('Disconnected from database');
 }
 
-export {
-    prisma,
-    pool,
-    dbConfig,
-    connectWithRetry,
-    initPrisma,
-    disconnect
-};
+export {prisma, pool, dbConfig, connectWithRetry, initPrisma, disconnect};

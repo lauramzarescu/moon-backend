@@ -1,5 +1,5 @@
 import {PrismaClient, User} from '@prisma/client';
-import {GenericRepository} from "../generic.repository";
+import {GenericRepository} from '../generic.repository';
 
 export class UserRepository extends GenericRepository<User> {
     constructor(prisma: PrismaClient) {

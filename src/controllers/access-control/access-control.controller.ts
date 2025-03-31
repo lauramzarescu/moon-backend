@@ -1,9 +1,9 @@
 import {Request, Response} from 'express';
 import {AccessControlRepository} from '../../repositories/access-control/access-control.repository';
-import {accessControlCreateSchema} from "./access-control.schema";
-import {AuthService} from "../../services/auth.service"
+import {accessControlCreateSchema} from './access-control.schema';
+import {AuthService} from '../../services/auth.service';
 import {UserRepository} from '../../repositories/user/user.repository';
-import {prisma} from "../../config/db.config";
+import {prisma} from '../../config/db.config';
 
 export class AccessControlController {
     protected repository = new AccessControlRepository(prisma);
@@ -20,15 +20,15 @@ export class AccessControlController {
             const result = await this.repository.create({
                 ...validatedData,
                 organizationId: user.organizationId,
-                isAllowed: true
+                isAllowed: true,
             });
 
             res.status(201).json(result);
         } catch (error) {
-            console.log(error)
-            res.status(500).json({message: "Internal server error"})
+            console.log(error);
+            res.status(500).json({message: 'Internal server error'});
         }
-    }
+    };
 
     disableAccessControl = async (req: Request, res: Response) => {
         try {
@@ -36,18 +36,18 @@ export class AccessControlController {
             const user = await this.userRepository.getOneWhere({id: token.userId});
 
             const result = await this.repository.deleteMany({
-                organizationId: user.organizationId
+                organizationId: user.organizationId,
             });
 
             res.status(200).json({
-                message: "Access control disabled successfully",
-                deletedCount: result.count
+                message: 'Access control disabled successfully',
+                deletedCount: result.count,
             });
         } catch (error) {
-            console.log(error)
-            res.status(500).json({message: "Internal server error"})
+            console.log(error);
+            res.status(500).json({message: 'Internal server error'});
         }
-    }
+    };
 
     removeFromList = async (req: Request, res: Response) => {
         try {
@@ -56,10 +56,10 @@ export class AccessControlController {
 
             res.status(200).json(result);
         } catch (error) {
-            console.log(error)
-            res.status(500).json({message: "Internal server error"})
+            console.log(error);
+            res.status(500).json({message: 'Internal server error'});
         }
-    }
+    };
 
     getList = async (req: Request, res: Response) => {
         try {
@@ -69,8 +69,8 @@ export class AccessControlController {
 
             res.status(200).json(result);
         } catch (error) {
-            console.log(error)
-            res.status(500).json({message: "Internal server error"})
+            console.log(error);
+            res.status(500).json({message: 'Internal server error'});
         }
-    }
+    };
 }

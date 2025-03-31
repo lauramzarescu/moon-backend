@@ -1,10 +1,10 @@
-import axios from "axios";
-import xml2js from "xml2js";
+import axios from 'axios';
+import xml2js from 'xml2js';
 
 interface SamlIdpInfoResponse {
     entityID: string;
-    singleSignOnServices: { binding: any; location: any; }[];
-    singleLogoutServices: { binding: any; location: any; }[];
+    singleSignOnServices: {binding: any; location: any}[];
+    singleLogoutServices: {binding: any; location: any}[];
     certificate: string | null;
 }
 
@@ -16,7 +16,10 @@ export class SamlService {
      * @param {boolean} isXmlString - Whether the first parameter is an XML string instead of URL
      * @returns {Promise<SamlIdpInfoResponse>} Extracted SAML metadata information
      */
-    static extractSamlIdpInfo = async (metadataUrl: string, isXmlString: boolean = false): Promise<SamlIdpInfoResponse> => {
+    static extractSamlIdpInfo = async (
+        metadataUrl: string,
+        isXmlString: boolean = false
+    ): Promise<SamlIdpInfoResponse> => {
         try {
             let xmlData;
 
@@ -31,7 +34,7 @@ export class SamlService {
             // Parse XML to JavaScript object
             const parser = new xml2js.Parser({
                 explicitArray: false,
-                tagNameProcessors: [xml2js.processors.stripPrefix]
+                tagNameProcessors: [xml2js.processors.stripPrefix],
             });
 
             const result = await parser.parseStringPromise(xmlData);
@@ -47,7 +50,7 @@ export class SamlService {
             }
 
             // Extract SingleSignOnService endpoints
-            const ssoServices: { binding: any; location: any; }[] = [];
+            const ssoServices: {binding: any; location: any}[] = [];
             if (idpDescriptor.SingleSignOnService) {
                 const services = Array.isArray(idpDescriptor.SingleSignOnService)
                     ? idpDescriptor.SingleSignOnService
@@ -56,13 +59,13 @@ export class SamlService {
                 services.forEach((service: any) => {
                     ssoServices.push({
                         binding: service.$.Binding,
-                        location: service.$.Location
+                        location: service.$.Location,
                     });
                 });
             }
 
             // Extract SingleLogoutService endpoints (if available)
-            const sloServices: { binding: any; location: any; }[] = [];
+            const sloServices: {binding: any; location: any}[] = [];
             if (idpDescriptor.SingleLogoutService) {
                 const logoutServices = Array.isArray(idpDescriptor.SingleLogoutService)
                     ? idpDescriptor.SingleLogoutService
@@ -71,7 +74,7 @@ export class SamlService {
                 logoutServices.forEach((service: any) => {
                     sloServices.push({
                         binding: service.$.Binding,
-                        location: service.$.Location
+                        location: service.$.Location,
                     });
                 });
             }
@@ -98,11 +101,11 @@ export class SamlService {
                 entityID,
                 singleSignOnServices: ssoServices,
                 singleLogoutServices: sloServices,
-                certificate
+                certificate,
             };
         } catch (error) {
             console.error('Error extracting SAML IdP information:', error);
             throw error;
         }
-    }
+    };
 }

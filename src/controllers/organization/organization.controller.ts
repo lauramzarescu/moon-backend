@@ -1,6 +1,6 @@
 import express from 'express';
-import {OrganizationRepository} from "../../repositories/organization/organization.repository";
-import {prisma} from "../../config/db.config";
+import {OrganizationRepository} from '../../repositories/organization/organization.repository';
+import {prisma} from '../../config/db.config';
 
 export class OrganizationController {
     static organizationRepository = new OrganizationRepository(prisma);
@@ -12,7 +12,7 @@ export class OrganizationController {
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
+    };
 
     static getOne = async (req: express.Request, res: express.Response) => {
         try {
@@ -21,7 +21,7 @@ export class OrganizationController {
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
+    };
 
     static create = async (req: express.Request, res: express.Response) => {
         try {
@@ -30,7 +30,7 @@ export class OrganizationController {
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
+    };
 
     static update = async (req: express.Request, res: express.Response) => {
         try {
@@ -39,7 +39,7 @@ export class OrganizationController {
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
+    };
 
     static delete = async (req: express.Request, res: express.Response) => {
         try {
@@ -48,5 +48,5 @@ export class OrganizationController {
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
+    };
 }

@@ -3,9 +3,9 @@ import {
     DescribeTaskDefinitionCommand,
     DescribeTasksCommand,
     ECSClient,
-    ListTasksCommand
-} from "@aws-sdk/client-ecs";
-import {backoffAndRetry} from "../../utils/backoff.util";
+    ListTasksCommand,
+} from '@aws-sdk/client-ecs';
+import {backoffAndRetry} from '../../utils/backoff.util';
 
 export class DeploymentMonitorService {
     private readonly ecsClient: ECSClient;
@@ -22,7 +22,10 @@ export class DeploymentMonitorService {
      * @param serviceName The ECS service name
      * @returns Object with isStuck status and details
      */
-    public async isDeploymentStuck(clusterName: string, serviceName: string): Promise<{
+    public async isDeploymentStuck(
+        clusterName: string,
+        serviceName: string
+    ): Promise<{
         isStuck: boolean;
         details?: {
             deploymentId: string;
@@ -31,17 +34,19 @@ export class DeploymentMonitorService {
             pendingCount: number;
             runningCount: number;
             desiredCount: number;
-            currentImages: { containerName: string, image: string }[];
-            targetImages: { containerName: string, image: string }[];
-        }
+            currentImages: {containerName: string; image: string}[];
+            targetImages: {containerName: string; image: string}[];
+        };
     }> {
         try {
             // Get service details
             const serviceResponse = await backoffAndRetry(() =>
-                this.ecsClient.send(new DescribeServicesCommand({
-                    cluster: clusterName,
-                    services: [serviceName]
-                }))
+                this.ecsClient.send(
+                    new DescribeServicesCommand({
+                        cluster: clusterName,
+                        services: [serviceName],
+                    })
+                )
             );
 
             if (!serviceResponse.services || serviceResponse.services.length === 0) {
@@ -74,7 +79,8 @@ export class DeploymentMonitorService {
             const targetImages = await this.getContainerImagesForTaskDefinition(primaryDeployment.taskDefinition || '');
 
             // Check if the deployment has been running for too long
-            const isStuck = elapsedTimeMs > this.deploymentTimeoutMs &&
+            const isStuck =
+                elapsedTimeMs > this.deploymentTimeoutMs &&
                 (primaryDeployment.runningCount ?? 0) < (primaryDeployment.desiredCount ?? 0);
 
             return {
@@ -87,11 +93,11 @@ export class DeploymentMonitorService {
                     runningCount: primaryDeployment.runningCount || 0,
                     desiredCount: primaryDeployment.desiredCount || 0,
                     currentImages,
-                    targetImages
-                }
+                    targetImages,
+                },
             };
         } catch (error) {
-            console.error("Error checking deployment status:", error);
+            console.error('Error checking deployment status:', error);
             throw error;
         }
     }
@@ -101,33 +107,36 @@ export class DeploymentMonitorService {
      * @param taskDefinitionArn The task definition ARN
      * @returns Array of container name and image pairs
      */
-    private async getContainerImagesForTaskDefinition(taskDefinitionArn: string): Promise<{
-        containerName: string,
-        image: string
-    }[]> {
+    private async getContainerImagesForTaskDefinition(taskDefinitionArn: string): Promise<
+        {
+            containerName: string;
+            image: string;
+        }[]
+    > {
         try {
             if (!taskDefinitionArn) {
                 return [];
             }
 
             const taskDefResponse = await backoffAndRetry(() =>
-                this.ecsClient.send(new DescribeTaskDefinitionCommand({
-                    taskDefinition: taskDefinitionArn
-                }))
+                this.ecsClient.send(
+                    new DescribeTaskDefinitionCommand({
+                        taskDefinition: taskDefinitionArn,
+                    })
+                )
             );
 
             const containerDefs = taskDefResponse.taskDefinition?.containerDefinitions || [];
 
             return containerDefs.map(container => ({
                 containerName: container.name || 'unknown',
-                image: container.image || 'unknown'
+                image: container.image || 'unknown',
             }));
         } catch (error) {
             console.error(`Error getting container images for task definition ${taskDefinitionArn}:`, error);
             return [];
         }
     }
-
 
     /**
      * Gets detailed information about tasks in a service
@@ -136,23 +145,27 @@ export class DeploymentMonitorService {
      */
     public async getTasksInfo(clusterName: string, serviceName: string) {
         try {
-            const tasksResponse = await this.ecsClient.send(new ListTasksCommand({
-                cluster: clusterName,
-                serviceName: serviceName
-            }));
+            const tasksResponse = await this.ecsClient.send(
+                new ListTasksCommand({
+                    cluster: clusterName,
+                    serviceName: serviceName,
+                })
+            );
 
             if (!tasksResponse.taskArns || tasksResponse.taskArns.length === 0) {
                 return [];
             }
 
-            const taskDetails = await this.ecsClient.send(new DescribeTasksCommand({
-                cluster: clusterName,
-                tasks: tasksResponse.taskArns
-            }));
+            const taskDetails = await this.ecsClient.send(
+                new DescribeTasksCommand({
+                    cluster: clusterName,
+                    tasks: tasksResponse.taskArns,
+                })
+            );
 
             return taskDetails.tasks || [];
         } catch (error) {
-            console.error("Error getting tasks info:", error);
+            console.error('Error getting tasks info:', error);
             throw error;
         }
     }
