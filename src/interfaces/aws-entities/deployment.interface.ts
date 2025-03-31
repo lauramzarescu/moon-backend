@@ -5,8 +5,8 @@ export interface DeploymentInterface {
     desiredCount: number
     pendingCount: number
     runningCount: number
-    createdAt: string
-    updatedAt: string
+    createdAt: Date
+    updatedAt: Date
     failedTasks: number
     rolloutState: DeploymentRolloutState
     rolloutStateReason: string
