@@ -55,8 +55,8 @@ const generateService = (index: number): ServiceInterface => ({
             desiredCount: 2,
             pendingCount: 0,
             runningCount: 2,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
             failedTasks: 0,
             rolloutState: 'COMPLETED',
             rolloutStateReason: 'ECS deployment completed successfully'
