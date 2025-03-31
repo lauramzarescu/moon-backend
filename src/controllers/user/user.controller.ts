@@ -8,18 +8,18 @@ import {
     userCreateSchema,
     userDetailsResponseSchema,
     UserDeviceInfo,
-    userUpdateSchema
-} from "./user.schema";
-import {AuthService} from "../../services/auth.service";
-import {UserHelper} from "./helper";
-import {PaginationHandler} from "../../utils/pagination.util";
-import {prisma} from "../../config/db.config";
+    userUpdateSchema,
+} from './user.schema';
+import {AuthService} from '../../services/auth.service';
+import {UserHelper} from './helper';
+import {PaginationHandler} from '../../utils/pagination.util';
+import {prisma} from '../../config/db.config';
 import * as QRCode from 'qrcode';
 import {OrganizationRepository} from '../../repositories/organization/organization.repository';
-import bcrypt from "bcrypt";
-import {LoginType} from "@prisma/client";
+import bcrypt from 'bcrypt';
+import {LoginType} from '@prisma/client';
 import {UAParser} from 'ua-parser-js';
-import moment from "moment/moment";
+import moment from 'moment/moment';
 import * as speakeasy from 'speakeasy';
 
 const TWO_FACTOR_EXPIRATION_DAYS = 7;
@@ -70,7 +70,7 @@ export class UserController {
         const deviceInfo = {
             fingerprint: currentDeviceFingerprint,
             lastVerified: new Date().toISOString(),
-            userAgent: req.headers['user-agent']
+            userAgent: req.headers['user-agent'],
         };
 
         if (deviceIndex >= 0) {
@@ -80,7 +80,7 @@ export class UserController {
         }
 
         await this.userRepository.update(userId, {
-            verifiedDevices: userDevices
+            verifiedDevices: userDevices,
         });
 
         return;
@@ -98,18 +98,18 @@ export class UserController {
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
+    };
 
     static getAll = async (req: express.Request, res: express.Response) => {
         try {
             const token = AuthService.decodeToken(req.headers.authorization);
-            const users = await this.userRepository.getAll({role: 'asc'})
+            const users = await this.userRepository.getAll({role: 'asc'});
 
             res.json(users);
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
+    };
 
     static getAllPaginated = async (req: express.Request, res: express.Response) => {
         try {
@@ -121,15 +121,14 @@ export class UserController {
                 limit: Number(req.query.limit) || 50,
                 filters,
                 orderBy: String(req.query.orderBy || 'createdAt'),
-                order: (req.query.order as 'asc' | 'desc') || 'desc'
+                order: (req.query.order as 'asc' | 'desc') || 'desc',
             });
 
             res.json(paginatedUsers);
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
-
+    };
 
     static getOne = async (req: express.Request, res: express.Response) => {
         try {
@@ -138,7 +137,7 @@ export class UserController {
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
+    };
 
     static create = async (req: express.Request, res: express.Response) => {
         try {
@@ -155,7 +154,7 @@ export class UserController {
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
+    };
 
     static update = async (req: express.Request, res: express.Response) => {
         try {
@@ -166,7 +165,7 @@ export class UserController {
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
+    };
 
     static delete = async (req: express.Request, res: express.Response) => {
         try {
@@ -176,7 +175,7 @@ export class UserController {
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
+    };
 
     static changePassword = async (req: express.Request, res: express.Response) => {
         try {
@@ -204,14 +203,14 @@ export class UserController {
             const hashedPassword = await bcrypt.hash(validatedData.newPassword, 10);
 
             await this.userRepository.update(token.userId, {
-                password: hashedPassword
+                password: hashedPassword,
             });
 
             res.json({success: true, message: 'Password changed successfully'});
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
+    };
 
     static changePasswordWith2FA = async (req: express.Request, res: express.Response) => {
         try {
@@ -239,7 +238,7 @@ export class UserController {
             const verified = speakeasy.totp.verify({
                 secret: user.twoFactorSecret,
                 encoding: 'base32',
-                token: validatedData.code
+                token: validatedData.code,
             });
 
             if (!verified) {
@@ -250,19 +249,18 @@ export class UserController {
             const hashedPassword = await bcrypt.hash(validatedData.newPassword, 10);
 
             await this.userRepository.update(token.userId, {
-                password: hashedPassword
+                password: hashedPassword,
             });
 
             await this.userRepository.update(token.userId, {
-                verifiedDevices: []
+                verifiedDevices: [],
             });
 
             res.json({success: true, message: 'Password changed successfully with 2FA verification'});
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
-
+    };
 
     static get2FAStatus = async (req: express.Request, res: express.Response) => {
         try {
@@ -271,12 +269,12 @@ export class UserController {
 
             res.json({
                 enabled: !!user.twoFactorSecret,
-                verified: user.twoFactorVerified
+                verified: user.twoFactorVerified,
             });
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
+    };
 
     static setup2FA = async (req: express.Request, res: express.Response) => {
         try {
@@ -286,13 +284,13 @@ export class UserController {
 
             // Generate a new secret
             const secret = speakeasy.generateSecret({
-                name: `${organization.name}:${user.email}`
+                name: `${organization.name}:${user.email}`,
             });
 
             // Save the secret temporarily (not verified yet)
             await this.userRepository.update(token.userId, {
                 twoFactorSecret: secret.base32,
-                twoFactorVerified: false
+                twoFactorVerified: false,
             });
 
             // Generate QR code
@@ -300,13 +298,13 @@ export class UserController {
 
             res.json({
                 secret: secret.base32,
-                qrCode: qrCodeUrl
+                qrCode: qrCodeUrl,
             });
         } catch (error: any) {
-            console.log(error)
+            console.log(error);
             res.status(500).json({error: error.message});
         }
-    }
+    };
 
     static verify2FACode = async (req: express.Request, res: express.Response) => {
         try {
@@ -323,7 +321,7 @@ export class UserController {
             const verified = speakeasy.totp.verify({
                 secret: user.twoFactorSecret,
                 encoding: 'base32',
-                token: validatedData.code
+                token: validatedData.code,
             });
 
             if (!verified) {
@@ -332,7 +330,7 @@ export class UserController {
             }
 
             await this.userRepository.update(token.userId, {
-                twoFactorVerified: true
+                twoFactorVerified: true,
             });
 
             await this.updateVerifiedDevices(token.userId, req);
@@ -341,7 +339,7 @@ export class UserController {
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
+    };
 
     static verifySession2FA = async (req: express.Request, res: express.Response) => {
         try {
@@ -370,7 +368,7 @@ export class UserController {
             const verified = speakeasy.totp.verify({
                 secret: user.twoFactorSecret,
                 encoding: 'base32',
-                token: validatedData.code
+                token: validatedData.code,
             });
 
             if (!verified) {
@@ -383,7 +381,7 @@ export class UserController {
             res.cookie('token', fullToken, {
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'strict',
-                expires: moment().add(24, 'h').toDate()
+                expires: moment().add(24, 'h').toDate(),
             });
 
             res.json({
@@ -393,8 +391,7 @@ export class UserController {
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
-
+    };
 
     static disable2FA = async (req: express.Request, res: express.Response) => {
         try {
@@ -411,7 +408,7 @@ export class UserController {
             const verified = speakeasy.totp.verify({
                 secret: user.twoFactorSecret,
                 encoding: 'base32',
-                token: validatedData.code
+                token: validatedData.code,
             });
 
             if (!verified) {
@@ -422,12 +419,12 @@ export class UserController {
             await this.userRepository.update(token.userId, {
                 twoFactorSecret: null,
                 twoFactorVerified: false,
-                verifiedDevices: []
+                verifiedDevices: [],
             });
 
             res.json({success: true, message: '2FA has been disabled'});
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
+    };
 }

@@ -1,23 +1,25 @@
 import {Prisma, PrismaClient} from '@prisma/client';
-import {PaginatedResult, PaginationHandler, PaginationParams} from "../utils/pagination.util";
+import {PaginatedResult, PaginationHandler, PaginationParams} from '../utils/pagination.util';
 
 export abstract class GenericRepository<T> {
     protected constructor(
         protected readonly prisma: PrismaClient,
-        protected readonly model: string,
-    ) {
-    }
+        protected readonly model: string
+    ) {}
 
     protected get repository(): any {
         return (this.prisma as any)[this.model];
     }
 
-    async getPaginated(params: PaginationParams, where: Prisma.Args<T, 'findMany'>['where'] = {}): Promise<PaginatedResult<T>> {
+    async getPaginated(
+        params: PaginationParams,
+        where: Prisma.Args<T, 'findMany'>['where'] = {}
+    ): Promise<PaginatedResult<T>> {
         const {skip, take, page, limit, orderBy, order} = PaginationHandler.process(params);
 
         const whereCondition = {
             ...where,
-            ...params.filters
+            ...params.filters,
         };
 
         const [total, data] = await Promise.all([
@@ -27,9 +29,9 @@ export abstract class GenericRepository<T> {
                 skip,
                 take,
                 orderBy: {
-                    [orderBy]: order
-                }
-            })
+                    [orderBy]: order,
+                },
+            }),
         ]);
 
         return PaginationHandler.createResponse(data, total, page, limit);
@@ -44,7 +46,7 @@ export abstract class GenericRepository<T> {
 
         const whereCondition = {
             ...where,
-            ...params.filters
+            ...params.filters,
         };
 
         const [total, data] = await Promise.all([
@@ -55,14 +57,13 @@ export abstract class GenericRepository<T> {
                 skip,
                 take,
                 orderBy: {
-                    [orderBy]: order
-                }
-            })
+                    [orderBy]: order,
+                },
+            }),
         ]);
 
         return PaginationHandler.createResponse(data, total, page, limit);
     }
-
 
     async create(data: Prisma.Args<T, 'create'>['data']): Promise<T> {
         return this.repository.create({
@@ -70,10 +71,7 @@ export abstract class GenericRepository<T> {
         });
     }
 
-    async upsert(
-        data: Prisma.Args<T, 'upsert'>['data'],
-        where: Prisma.Args<T, 'findFirst'>['where']
-    ): Promise<T> {
+    async upsert(data: Prisma.Args<T, 'upsert'>['data'], where: Prisma.Args<T, 'findFirst'>['where']): Promise<T> {
         return this.repository.upsert({
             where,
             create: data,
@@ -126,10 +124,9 @@ export abstract class GenericRepository<T> {
 
     async getAll(orderBy?: Record<string, 'asc' | 'desc'>): Promise<T[]> {
         return this.repository.findMany({
-            ...(orderBy && {orderBy})
+            ...(orderBy && {orderBy}),
         });
     }
-
 
     async getMany(where: Prisma.Args<T, 'findMany'>['where']): Promise<T[]> {
         const records = await this.repository.findMany({where});
@@ -165,9 +162,9 @@ export abstract class GenericRepository<T> {
             where: {
                 [field]: {
                     contains: value,
-                    mode: 'insensitive'
-                }
-            }
+                    mode: 'insensitive',
+                },
+            },
         });
     }
 }

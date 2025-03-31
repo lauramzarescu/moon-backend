@@ -1,8 +1,8 @@
 import {NextFunction, Request, Response} from 'express';
-import {UserRole} from "@prisma/client";
-import {AuthService} from "../services/auth.service";
-import {UserRepository} from "../repositories/user/user.repository";
-import {prisma} from "../config/db.config";
+import {UserRole} from '@prisma/client';
+import {AuthService} from '../services/auth.service';
+import {UserRepository} from '../repositories/user/user.repository';
+import {prisma} from '../config/db.config';
 
 export const requireOrganizationAdminGuard = async (req: Request, res: Response, next: NextFunction) => {
     try {

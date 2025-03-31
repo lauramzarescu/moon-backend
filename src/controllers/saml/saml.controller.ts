@@ -1,14 +1,14 @@
-import express from 'express'
-import passport from "passport";
-import {initializeSamlAuth} from "../../config/saml.strategy";
-import {SamlConfig, User} from "@prisma/client";
-import {SamlConfigRepository} from "../../repositories/saml-config/saml-config.repository";
-import {AuthService} from "../../services/auth.service";
-import {UserRepository} from "../../repositories/user/user.repository";
-import {samlConfigDeleteWith2FASchema, samlConfigSchema, samlConfigUpdateSchema} from "./saml-config.schema";
-import {SamlService} from "../../services/saml.service";
-import {Strategy} from "passport-saml";
-import {prisma} from "../../config/db.config";
+import express from 'express';
+import passport from 'passport';
+import {initializeSamlAuth} from '../../config/saml.strategy';
+import {SamlConfig, User} from '@prisma/client';
+import {SamlConfigRepository} from '../../repositories/saml-config/saml-config.repository';
+import {AuthService} from '../../services/auth.service';
+import {UserRepository} from '../../repositories/user/user.repository';
+import {samlConfigDeleteWith2FASchema, samlConfigSchema, samlConfigUpdateSchema} from './saml-config.schema';
+import {SamlService} from '../../services/saml.service';
+import {Strategy} from 'passport-saml';
+import {prisma} from '../../config/db.config';
 import * as speakeasy from 'speakeasy';
 
 export class SamlController {
@@ -31,16 +31,16 @@ export class SamlController {
             })(req, res, next);
         } catch (error) {
             console.error('Error during SAML login:', error);
-            res.redirect(`${process.env.APP_URL}/login`)
+            res.redirect(`${process.env.APP_URL}/login`);
         }
-    }
+    };
 
     static callback = (req: express.Request, res: express.Response, next: express.NextFunction) => {
         passport.authenticate(
             req.query.strategy as string,
             {
                 session: true,
-                keepSessionInfo: true
+                keepSessionInfo: true,
             },
             (err: any, user: any, info: any) => {
                 if (err) {
@@ -55,7 +55,7 @@ export class SamlController {
                     return;
                 }
 
-                req.logIn(user, (loginErr) => {
+                req.logIn(user, loginErr => {
                     if (loginErr) {
                         console.error('Login error:', loginErr);
                         res.redirect(`${process.env.APP_URL}/login`);
@@ -66,28 +66,29 @@ export class SamlController {
 
                     res.cookie('token', token, {
                         secure: process.env.NODE_ENV === 'production',
-                        sameSite: 'strict'
+                        sameSite: 'strict',
                     });
 
                     res.redirect(process.env.APP_URL || '/');
                     return;
                 });
-            })(req, res, next);
-    }
+            }
+        )(req, res, next);
+    };
 
     static metadata = (req: express.Request, res: express.Response) => {
-        res.send(req.body)
+        res.send(req.body);
         // const metadata = strategy.generateServiceProviderMetadata(
         //     process.env.SP_CERT ?? '',
         //     process.env.SP_PRIVATE_KEY
         // );
         // res.type('application/xml');
         // res.send(metadata);
-    }
+    };
 
     static loginSuccess = (req: express.Request, res: express.Response) => {
         res.send('Login successful');
-    }
+    };
 
     static logout = (req: express.Request, res: express.Response) => {
         try {
@@ -111,27 +112,30 @@ export class SamlController {
                 return;
             }
 
-            samlStrategy.logout({
-                user: requesterUser,
-                samlLogoutRequest: req
-            } as any, (err: Error | null, url: string | null | undefined) => {
-                if (err) {
-                    res.status(500).send('Error during SAML logout');
-                    return;
-                }
-
-                req.logout(() => {
-                    res.clearCookie('token');
-                    res.clearCookie('auth');
-
-                    if (url) {
-                        res.status(200).json({url});
+            samlStrategy.logout(
+                {
+                    user: requesterUser,
+                    samlLogoutRequest: req,
+                } as any,
+                (err: Error | null, url: string | null | undefined) => {
+                    if (err) {
+                        res.status(500).send('Error during SAML logout');
                         return;
                     }
 
-                    res.redirect(`${originUrl}/login`);
-                });
-            })
+                    req.logout(() => {
+                        res.clearCookie('token');
+                        res.clearCookie('auth');
+
+                        if (url) {
+                            res.status(200).json({url});
+                            return;
+                        }
+
+                        res.redirect(`${originUrl}/login`);
+                    });
+                }
+            );
         } catch (error) {
             console.error('Logout error:', error);
             res.status(500).send('Error during logout');
@@ -140,7 +144,7 @@ export class SamlController {
 
     static samlLogoutCallback = (req: express.Request, res: express.Response) => {
         res.send('SAML logout callback');
-    }
+    };
 
     static logoutProcess = (req: express.Request, res: express.Response) => {
         req.logout(function (err: Error | null) {
@@ -156,7 +160,7 @@ export class SamlController {
                 res.status(200).json('Logout successful');
             });
         });
-    }
+    };
 
     static createConfiguration = async (req: express.Request, res: express.Response) => {
         try {
@@ -170,7 +174,7 @@ export class SamlController {
                 metadataUrl: validatedData.metadataUrl,
                 serviceProviderX509Certificate: validatedData.x509Certificate,
                 serviceProviderPrivateKey: validatedData.privateKey,
-                organizationId: user.organizationId
+                organizationId: user.organizationId,
             });
 
             console.log('SAML config created:');
@@ -179,7 +183,7 @@ export class SamlController {
             console.error(error);
             res.status(500).json({error: 'Failed to create SAML configuration'});
         }
-    }
+    };
 
     static getConfiguration = async (req: express.Request, res: express.Response) => {
         try {
@@ -192,11 +196,12 @@ export class SamlController {
                 const sanitizedConfig = {
                     ...configuration,
                     serviceProviderPrivateKey: configuration.serviceProviderPrivateKey
-                        ? [...configuration.serviceProviderPrivateKey.split('\n').slice(0, 2),
-                            '[PRIVATE_KEY_HIDDEN]',
-                            ...configuration.serviceProviderPrivateKey.split('\n').slice(-3)
-                        ].join('\n')
-                        : null
+                        ? [
+                              ...configuration.serviceProviderPrivateKey.split('\n').slice(0, 2),
+                              '[PRIVATE_KEY_HIDDEN]',
+                              ...configuration.serviceProviderPrivateKey.split('\n').slice(-3),
+                          ].join('\n')
+                        : null,
                 };
 
                 res.json(sanitizedConfig);
@@ -206,7 +211,7 @@ export class SamlController {
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
-    }
+    };
 
     static updateConfiguration = async (req: express.Request, res: express.Response) => {
         const configurationId = req.params.id;
@@ -218,22 +223,19 @@ export class SamlController {
 
         try {
             const validatedData = samlConfigUpdateSchema.parse(req.body);
-            const updatedConfig = await this.samlConfigRepository.update(
-                req.params.id,
-                {
-                    entityId: validatedData.entityId,
-                    metadataUrl: validatedData.metadataUrl,
-                    serviceProviderX509Certificate: validatedData.x509Certificate,
-                    serviceProviderPrivateKey: validatedData.privateKey,
-                }
-            );
+            const updatedConfig = await this.samlConfigRepository.update(req.params.id, {
+                entityId: validatedData.entityId,
+                metadataUrl: validatedData.metadataUrl,
+                serviceProviderX509Certificate: validatedData.x509Certificate,
+                serviceProviderPrivateKey: validatedData.privateKey,
+            });
             console.log('SAML config updated');
             res.json(updatedConfig);
         } catch (error) {
             console.error(error);
             res.status(500).json({error: 'Failed to update SAML configuration'});
         }
-    }
+    };
 
     static deleteConfiguration = async (req: express.Request, res: express.Response) => {
         const configurationId = req.params.id;
@@ -258,7 +260,7 @@ export class SamlController {
             console.error(error);
             res.status(500).json({error: 'Failed to delete SAML configuration'});
         }
-    }
+    };
 
     static delete2FAConfiguration = async (req: express.Request, res: express.Response) => {
         try {
@@ -275,7 +277,7 @@ export class SamlController {
             const verified = speakeasy.totp.verify({
                 secret: user.twoFactorSecret,
                 encoding: 'base32',
-                token: validatedData.code
+                token: validatedData.code,
             });
 
             if (!verified) {
@@ -284,7 +286,7 @@ export class SamlController {
             }
 
             const samlConfig = await this.samlConfigRepository.findOneWhere({
-                organizationId: user.organizationId
+                organizationId: user.organizationId,
             });
 
             if (!samlConfig) {
@@ -297,12 +299,11 @@ export class SamlController {
             res.json({
                 success: true,
                 message: 'SAML configuration deleted successfully with 2FA verification',
-                id: deletedConfig.id
+                id: deletedConfig.id,
             });
         } catch (error: any) {
             console.error('Error deleting SAML configuration with 2FA:', error);
             res.status(500).json({error: error.message});
         }
-    }
-
+    };
 }

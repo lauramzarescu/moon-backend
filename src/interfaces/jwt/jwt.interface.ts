@@ -1,6 +1,6 @@
-import {PermissionEnum} from "../../enums/rbac/permission.enum";
-import {LoginType, UserRole} from "@prisma/client";
-import {JwtPayload} from "jsonwebtoken";
+import {PermissionEnum} from '../../enums/rbac/permission.enum';
+import {LoginType, UserRole} from '@prisma/client';
+import {JwtPayload} from 'jsonwebtoken';
 
 export interface JwtInterface extends JwtPayload {
     userId: string;

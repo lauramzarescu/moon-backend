@@ -1,7 +1,7 @@
-import {UserRole} from "@prisma/client";
-import {PermissionEnum} from "../enums/rbac/permission.enum";
+import {UserRole} from '@prisma/client';
+import {PermissionEnum} from '../enums/rbac/permission.enum';
 
-export const RolePermissions: Record<UserRole, (PermissionEnum[] | '*')> = {
+export const RolePermissions: Record<UserRole, PermissionEnum[] | '*'> = {
     root: '*',
     admin: '*',
     user: [

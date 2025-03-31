@@ -1,10 +1,10 @@
 import {NextFunction, Request, Response} from 'express';
-import {UserRole} from "@prisma/client";
-import {UserRepository} from "../repositories/user/user.repository";
-import {AccessControlHelper} from "../controllers/access-control/helper";
-import {UserInput} from "../controllers/user/user.schema";
-import {prisma} from "../config/db.config";
-import {SamlConfigRepository} from "../repositories/saml-config/saml-config.repository";
+import {UserRole} from '@prisma/client';
+import {UserRepository} from '../repositories/user/user.repository';
+import {AccessControlHelper} from '../controllers/access-control/helper';
+import {UserInput} from '../controllers/user/user.schema';
+import {prisma} from '../config/db.config';
+import {SamlConfigRepository} from '../repositories/saml-config/saml-config.repository';
 
 /** Only for login endpoint with SAML */
 export const checkAccessControlGuard = async (req: Request, res: Response, next: NextFunction) => {
@@ -24,12 +24,12 @@ export const checkAccessControlGuard = async (req: Request, res: Response, next:
         const isAllowed = await accessControlHelper.checkAccess(user.email, user.organizationId);
         if (!isAllowed) {
             res.status(403).json({error: 'Access denied.'});
-            return
+            return;
         }
 
         next();
     } catch (error) {
-        console.log(error)
+        console.log(error);
         res.status(403).json({message: 'Access denied'});
         return;
     }
@@ -63,12 +63,12 @@ export const checkAccessControlPasswordGuard = async (req: Request, res: Respons
         const isAllowed = await accessControlHelper.checkAccess(email, requesterUser.organizationId);
         if (!isAllowed) {
             res.status(403).json({error: 'Access denied.'});
-            return
+            return;
         }
 
         next();
     } catch (error) {
-        console.log(error)
+        console.log(error);
         res.status(403).json({message: 'Access denied'});
         return;
     }

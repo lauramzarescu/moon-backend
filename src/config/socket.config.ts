@@ -1,24 +1,21 @@
 import {Server, Socket} from 'socket.io';
 import {createServer} from 'http';
-import express, {Express} from "express";
-import {SocketDetailsService} from "../services/socket.service";
-import {AuthService} from "../services/auth.service";
-import * as cookie from 'cookie'
-import {SOCKET_EVENTS} from "../constants/socket-events";
+import express, {Express} from 'express';
+import {SocketDetailsService} from '../services/socket.service';
+import {AuthService} from '../services/auth.service';
+import * as cookie from 'cookie';
+import {SOCKET_EVENTS} from '../constants/socket-events';
 
 export const app: Express = express();
 export const httpServer = createServer(app);
 export const io = new Server(httpServer, {
     cors: {
-        origin: [
-            process.env.APP_URL || 'http://localhost:5173',
-            process.env.API_URL || 'http://localhost:3000'
-        ],
-        methods: ["GET", "POST"],
-        credentials: true
+        origin: [process.env.APP_URL || 'http://localhost:5173', process.env.API_URL || 'http://localhost:3000'],
+        methods: ['GET', 'POST'],
+        credentials: true,
     },
     transports: ['polling', 'websocket'],
-    allowUpgrades: true
+    allowUpgrades: true,
 });
 
 const socketDetailsService = SocketDetailsService.getInstance();
@@ -104,14 +101,13 @@ const executeWithHealthCheck = async (socket: AuthenticatedSocket) => {
         }
     } catch (error: any) {
         console.log(`[ERROR] Execute failed: ${error.message}`);
-        if ((error.message?.toLowerCase().includes('exceeded') ||
-            error.message?.toLowerCase().includes('throttling'))) {
+        if (error.message?.toLowerCase().includes('exceeded') || error.message?.toLowerCase().includes('throttling')) {
             increaseInterval();
         }
 
         socket.emit('clusters-error', {
             error: 'Failed to fetch cluster information',
-            details: error
+            details: error,
         });
     }
 };
@@ -146,7 +142,7 @@ io.use((socket: Socket, next) => {
         const cookieHeader = socket.handshake.headers.cookie;
 
         if (!cookieHeader) {
-            return next(new Error("Authentication required"));
+            return next(new Error('Authentication required'));
         }
 
         const cookies = cookie.parse(cookieHeader);
@@ -154,7 +150,7 @@ io.use((socket: Socket, next) => {
         const token = cookies['token'];
 
         if (!token) {
-            return next(new Error("Authentication token not found"));
+            return next(new Error('Authentication token not found'));
         }
 
         const decoded = AuthService.decodeToken(token);
@@ -165,7 +161,7 @@ io.use((socket: Socket, next) => {
         next();
     } catch (error) {
         console.error(`[AUTH] Authentication failed for ${socket.id}:`, error);
-        next(new Error("Invalid authentication token"));
+        next(new Error('Invalid authentication token'));
     }
 });
 
@@ -180,7 +176,7 @@ io.on('connection', async (_socket: Socket) => {
             sockets: [socket],
             timeoutId: null,
             intervalTime: currentInterval * 1000,
-            isAutomatic: true
+            isAutomatic: true,
         };
         connectedClients.set(userId, clientInfo);
     } else {
@@ -189,7 +185,7 @@ io.on('connection', async (_socket: Socket) => {
         client.sockets.push(socket);
     }
 
-    socket.on(SOCKET_EVENTS.INTERVAL_SET, (intervalTime) => {
+    socket.on(SOCKET_EVENTS.INTERVAL_SET, intervalTime => {
         const client = connectedClients.get(userId);
         console.log(`[INTERVAL] User ${userId} requested interval change to ${intervalTime}s`);
 

@@ -1,10 +1,13 @@
-import {ServiceInterface} from "./service.interface";
+import {ServiceInterface} from './service.interface';
+import {InstanceStateName} from '@aws-sdk/client-ec2/dist-types/models';
 
 export interface InstanceInterface {
     id: string;
     type: string;
-    state: string;
+    state: InstanceStateName;
+    name: string;
     publicIp: string;
-    privateIp: string;
+    primaryPrivateIp: string;
+    privateIpAddresses: string[];
     services?: ServiceInterface[];
 }

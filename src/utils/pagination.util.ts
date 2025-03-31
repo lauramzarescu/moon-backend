@@ -15,7 +15,7 @@ export interface PaginatedResult<T> {
         totalPages: number;
         hasNextPage: boolean;
         hasPreviousPage: boolean;
-    }
+    };
 }
 
 type FieldType = 'string' | 'number' | 'boolean' | 'date';
@@ -25,8 +25,8 @@ type ModelFieldMapping = {
         [key: string]: {
             field: string;
             type: FieldType;
-        }
-    }
+        };
+    };
 };
 
 const dbFieldMapping: ModelFieldMapping = {
@@ -39,7 +39,7 @@ const dbFieldMapping: ModelFieldMapping = {
     organization: {
         name: {field: 'name', type: 'string'},
         domain: {field: 'domain', type: 'string'},
-    }
+    },
 };
 
 export class PaginationHandler {
@@ -56,16 +56,11 @@ export class PaginationHandler {
             page,
             limit,
             orderBy,
-            order
+            order,
         };
     }
 
-    static createResponse<T>(
-        data: T[],
-        total: number,
-        page: number,
-        limit: number
-    ): PaginatedResult<T> {
+    static createResponse<T>(data: T[], total: number, page: number, limit: number): PaginatedResult<T> {
         const totalPages = Math.ceil(total / limit);
 
         return {
@@ -76,8 +71,8 @@ export class PaginationHandler {
                 limit,
                 totalPages,
                 hasNextPage: page < totalPages,
-                hasPreviousPage: page > 1
-            }
+                hasPreviousPage: page > 1,
+            },
         };
     }
 

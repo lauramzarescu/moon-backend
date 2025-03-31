@@ -1,11 +1,11 @@
 import {Socket} from 'socket.io';
-import NodeCache from "node-cache";
-import {ec2Client, ecsClient} from "../config/aws.config";
-import {AWSResponseInterface} from "../interfaces/responses/aws-response.interface";
-import {SOCKET_EVENTS} from "../constants/socket-events";
-import {AWS_DATA_CACHE_KEY, CACHE_CONFIG} from "../config/cache.config";
+import NodeCache from 'node-cache';
+import {ec2Client, ecsClient} from '../config/aws.config';
+import {AWSResponseInterface} from '../interfaces/responses/aws-response.interface';
+import {SOCKET_EVENTS} from '../constants/socket-events';
+import {AWS_DATA_CACHE_KEY, CACHE_CONFIG} from '../config/cache.config';
 import {EC2Service} from './aws/ec2.service';
-import {ECSService} from "./aws/ecs.service";
+import {ECSService} from './aws/ecs.service';
 
 export class SocketDetailsService {
     private static instance: SocketDetailsService;
@@ -13,8 +13,7 @@ export class SocketDetailsService {
     private ec2Service = new EC2Service(ec2Client);
     private ecsService = new ECSService(ecsClient);
 
-    private constructor() {
-    }
+    private constructor() {}
 
     public static getInstance(): SocketDetailsService {
         if (!this.instance) {
@@ -36,7 +35,7 @@ export class SocketDetailsService {
 
         const instances = await this.ec2Service.getInstances();
         const clusterDetails = await this.ecsService.getClusterDetails(instances);
-
+        console.log(instances);
         const response = {
             clusters: {
                 clusters: clusterDetails,
@@ -44,7 +43,7 @@ export class SocketDetailsService {
             ec2Instances: {
                 instances: instances,
             },
-            updatedOn: new Date().toISOString()
+            updatedOn: new Date().toISOString(),
         } as AWSResponseInterface;
 
         console.log('[INFO] Caching cluster details');

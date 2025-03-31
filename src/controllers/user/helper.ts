@@ -1,7 +1,7 @@
-import {UserRole} from "@prisma/client";
-import {UserRepository} from "../../repositories/user/user.repository";
-import {PaginationParams} from "../../utils/pagination.util";
-import {prisma} from "../../config/db.config";
+import {UserRole} from '@prisma/client';
+import {UserRepository} from '../../repositories/user/user.repository';
+import {PaginationParams} from '../../utils/pagination.util';
+import {prisma} from '../../config/db.config';
 
 export class UserHelper {
     static userRepository = new UserRepository(prisma);
@@ -16,15 +16,15 @@ export class UserHelper {
         if (requestingUser.role === UserRole.admin) {
             return this.userRepository.getMany({
                 organizationId: requestingUser.organizationId,
-                role: {notIn: [UserRole.root]}
+                role: {notIn: [UserRole.root]},
             });
         }
 
         return this.userRepository.getMany({
             organizationId: requestingUser.organizationId,
-            role: UserRole.user
+            role: UserRole.user,
         });
-    }
+    };
 
     static getAuthorizedPaginated = async (requesterUserId: string, params: PaginationParams) => {
         const requestingUser = await this.userRepository.getOneWhere({id: requesterUserId});
@@ -36,13 +36,13 @@ export class UserHelper {
         if (requestingUser.role === UserRole.admin) {
             return this.userRepository.getPaginated(params, {
                 organizationId: requestingUser.organizationId,
-                role: {notIn: [UserRole.root]}
+                role: {notIn: [UserRole.root]},
             });
         }
 
         return this.userRepository.getPaginated(params, {
             organizationId: requestingUser.organizationId,
-            role: UserRole.user
+            role: UserRole.user,
         });
-    }
+    };
 }

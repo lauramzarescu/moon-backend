@@ -1,5 +1,5 @@
 import {Organization, PrismaClient} from '@prisma/client';
-import {GenericRepository} from "../generic.repository";
+import {GenericRepository} from '../generic.repository';
 
 export class OrganizationRepository extends GenericRepository<Organization> {
     constructor(prisma: PrismaClient) {

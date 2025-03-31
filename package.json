@@ -8,6 +8,7 @@
     "start": "tsc && node dist/index.js --max-old-space-size=4096",
     "start-dev": "tsc && nodemon src/index.ts --max-old-space-size=4096",
     "lint": "eslint . --ext .ts",
+    "fix-style": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json}\"",
     "test": "npm test",
     "prisma-migration": "npx prisma migrate deploy --schema ./src/prisma/schema.prisma",
     "prisma-types": "npx prisma generate --schema ./src/prisma/schema.prisma"
@@ -73,6 +74,7 @@
     "@types/xml2js": "^0.4.14",
     "@types/xmldom": "^0.1.34",
     "cookie": "^1.0.2",
+    "prettier": "^3.5.3",
     "prisma": "^6.4.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3"

@@ -1,12 +1,11 @@
-import jwt, {JwtPayload} from "jsonwebtoken";
-import {getPermissionsForRole} from "./rbac.service";
-import {User} from "@prisma/client";
-import {PermissionEnum} from "../enums/rbac/permission.enum";
-import {JwtInterface} from "../interfaces/jwt/jwt.interface";
+import jwt, {JwtPayload} from 'jsonwebtoken';
+import {getPermissionsForRole} from './rbac.service';
+import {User} from '@prisma/client';
+import {PermissionEnum} from '../enums/rbac/permission.enum';
+import {JwtInterface} from '../interfaces/jwt/jwt.interface';
 
 export class AuthService {
-    constructor() {
-    }
+    constructor() {}
 
     static createTemporaryToken(user: any) {
         return jwt.sign(
@@ -26,7 +25,7 @@ export class AuthService {
                 userId: user.id,
                 permissions: getPermissionsForRole(user.role),
                 role: user.role,
-                loginType: user.loginType
+                loginType: user.loginType,
             },
             process.env.JWT_SECRET as string,
             {expiresIn: '24h'}
@@ -46,9 +45,12 @@ export class AuthService {
         return jwt.verify(token, process.env.JWT_SECRET as string) as JwtInterface;
     }
 
-    static tokenHasPermissions(decodedToken: JwtPayload & {
+    static tokenHasPermissions(
+        decodedToken: JwtPayload & {
+            permissions: PermissionEnum[];
+        },
         permissions: PermissionEnum[]
-    }, permissions: PermissionEnum[]) {
+    ) {
         return permissions.every(permission => decodedToken.permissions.includes(permission));
     }
 }

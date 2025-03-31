@@ -1,5 +1,5 @@
 import express from 'express';
-import {io} from "../config/socket.config";
+import {io} from '../config/socket.config';
 
 const router = express.Router();
 
@@ -7,7 +7,7 @@ router.get('/', (req, res) => {
     const socketStatus = {
         connected: io.sockets.sockets.size,
         rooms: Array.from(io.sockets.adapter.rooms.keys()),
-        serverUptime: process.uptime()
+        serverUptime: process.uptime(),
     };
 
     res.json({
