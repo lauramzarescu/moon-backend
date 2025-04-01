@@ -50,7 +50,6 @@ export class SamlController {
                 }
 
                 if (!user) {
-                    console.log('No user from SAML auth:', info);
                     res.redirect(`${process.env.APP_URL}/login`);
                     return;
                 }

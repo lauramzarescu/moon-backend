@@ -35,7 +35,7 @@ export class SocketDetailsService {
 
         const instances = await this.ec2Service.getInstances();
         const clusterDetails = await this.ecsService.getClusterDetails(instances);
-        console.log(instances);
+
         const response = {
             clusters: {
                 clusters: clusterDetails,
