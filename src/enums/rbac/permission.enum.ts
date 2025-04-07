@@ -9,6 +9,11 @@ export enum PermissionEnum {
     SAML_CONFIGURATION_WRITE = 'saml:configuration:write',
     SAML_CONFIGURATION_DELETE = 'saml:configuration:delete',
 
+    ACTIONS_CREATE = 'actions:create',
+    ACTIONS_READ = 'actions:read',
+    ACTIONS_WRITE = 'actions:write',
+    ACTIONS_DELETE = 'actions:delete',
+
     ACCESS_CONTROL_CREATE = 'access_control:create',
     ACCESS_CONTROL_READ = 'access_control:read',
     ACCESS_CONTROL_WRITE = 'access_control:write',

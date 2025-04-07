@@ -1,33 +1,10 @@
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
 generator client {
   provider = "prisma-client-js"
 }
 
-// For the moment, we are only supporting local organizations
-enum OrganizationType {
-  local
-  cloud
-}
-
-enum LoginType {
-  local // email and password
-  saml // SAML 2.0
-}
-
-enum UserRole {
-  root
-  admin
-  user
-}
-
-enum ServiceType {
-  aws
-  digital_ocean
-  gcp
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Organization {
@@ -36,31 +13,46 @@ model Organization {
   name          String
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
-  users         User[]
+  accessControl AccessControl[]
+  actions       Action[]
+  auditLogs     AuditLog[]
   saml          SamlConfig?
   services      ServicesConfig[]
-  accessControl AccessControl[]
+  users         User[]
 }
 
 model User {
-  id                String        @id @default(uuid())
+  id                String       @id @default(uuid())
   name              String?
-  email             String        @unique
+  email             String       @unique
   organizationId    String
-  organization      Organization? @relation(fields: [organizationId], references: [id])
   password          String?
-  loginType         LoginType     @default(local)
-  role              UserRole      @default(user)
-  nameID            String?       @unique
+  loginType         LoginType    @default(local)
+  role              UserRole     @default(user)
+  nameID            String?      @unique
   nameIDFormat      String?
   sessionIndex      String?
   lastLogin         DateTime?
-  // Each object in verifiedDevices contains: { fingerprint: string, lastVerified: string, userAgent?: string }
   verifiedDevices   Json[]
   twoFactorSecret   String?
-  twoFactorVerified Boolean       @default(false)
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  twoFactorVerified Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  auditLogs         AuditLog[]
+  organization      Organization @relation(fields: [organizationId], references: [id])
+}
+
+model Action {
+  id             String       @id @default(uuid())
+  name           String
+  actionType     ActionType
+  triggerType    TriggerType
+  config         Json
+  enabled        Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
 }
 
 model SamlConfig {
@@ -90,9 +82,54 @@ model AccessControl {
   id             String       @id @default(uuid())
   email          String       @unique
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
   isAllowed      Boolean      @default(true)
   description    String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id])
+}
+
+model AuditLog {
+  id             String       @id @default(uuid())
+  userId         String
+  organizationId String
+  action         String
+  details        Json
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
+}
+
+enum OrganizationType {
+  local
+  cloud
+}
+
+enum LoginType {
+  local
+  saml
+}
+
+enum UserRole {
+  root
+  admin
+  user
+}
+
+enum ServiceType {
+  aws
+  digital_ocean
+  gcp
+}
+
+enum ActionType {
+  add_inbound_rule
+  send_notification
+}
+
+enum TriggerType {
+  user_login
+  user_logout
+  user_created
 }

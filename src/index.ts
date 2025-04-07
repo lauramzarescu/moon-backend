@@ -30,6 +30,7 @@ app.use((req, res, next) => {
 app.use(cookieParser());
 app.use(express.json({limit: '50mb'}));
 app.use(express.urlencoded({limit: '50mb', extended: true}));
+app.set('trust proxy', true);
 
 const corsOptions = {
     origin: [process.env.APP_URL || 'http://localhost:5173', process.env.API_URL || 'http://localhost:3000'],

@@ -11,6 +11,7 @@ export const RolePermissions: Record<UserRole, PermissionEnum[] | '*'> = {
         PermissionEnum.AWS_CLUSTER_READ,
         PermissionEnum.AWS_SERVICE_READ,
         PermissionEnum.AWS_SCHEDULED_TASK_READ,
+        PermissionEnum.ACTIONS_READ,
     ],
 };
 
