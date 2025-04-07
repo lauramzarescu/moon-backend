@@ -8,6 +8,7 @@ import {prisma} from '../../config/db.config';
 import {UserController} from '../user/user.controller';
 import {AuditLogHelper} from '../audit-log/audit-log.helper';
 import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
+import {LoginType} from '@prisma/client';
 
 export class AuthController {
     static userRepository = new UserRepository(prisma);
@@ -28,7 +29,7 @@ export class AuthController {
                 return;
             }
 
-            if (user.loginType !== 'local' || !user.password) {
+            if (user.loginType !== LoginType.local || !user.password) {
                 res.status(401).json({error: 'Invalid login type'});
                 return;
             }

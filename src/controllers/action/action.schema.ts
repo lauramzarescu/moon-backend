@@ -12,7 +12,7 @@ export const addInboundRuleConfigSchema = z.object({
     protocol: z.string().min(1, 'Protocol is required'),
     portRange: z.string().min(1, 'Port/Range is required'),
     descriptionTemplate: z.string().optional(),
-    ip: z.string(),
+    ip: z.string().optional(),
 });
 export type AddInboundRuleConfig = z.infer<typeof addInboundRuleConfigSchema>;
 

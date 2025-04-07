@@ -7,6 +7,8 @@ import * as cookie from 'cookie';
 import {SOCKET_EVENTS} from '../constants/socket-events';
 
 export const app: Express = express();
+app.set('trust proxy', true);
+
 export const httpServer = createServer(app);
 export const io = new Server(httpServer, {
     cors: {

@@ -16,8 +16,6 @@ export class ActionHelper {
      * @param ip The IP address to use for the action.
      */
     public async execute(action: ActionDefinition, ip: string = '10.20.8.106') {
-        console.log(`Executing action: ${action.config}`);
-
         if (!ip) {
             throw new Error('IP address is required for executing the action');
         }
@@ -25,8 +23,6 @@ export class ActionHelper {
         switch (action.actionType) {
             case ActionType.add_inbound_rule:
                 const actionConfig = action.config as AddInboundRuleConfig;
-                actionConfig.ip = '10.20.8.106';
-
                 await this.executeInboundRule(actionConfig);
                 break;
             default:
@@ -71,7 +67,7 @@ export class ActionHelper {
         // Execute the EC2 security group rule addition
         return this.ec2Service.addInboundRuleForClientIp(
             config.securityGroupId,
-            config.ip,
+            config.ip || '-',
             fromPort,
             toPort,
             config.protocol,
