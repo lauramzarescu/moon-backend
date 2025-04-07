@@ -125,7 +125,8 @@ enum ServiceType {
 
 enum ActionType {
   add_inbound_rule
-  send_notification
+  send_email_notification
+  send_slack_notification
 }
 
 enum TriggerType {

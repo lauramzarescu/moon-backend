@@ -5,10 +5,10 @@ import {PermissionEnum} from '../enums/rbac/permission.enum';
 
 const router = express.Router();
 
-router.get('/', isAuthenticatedGuard([PermissionEnum.ACTIONS_READ]), ActionsController.listActions);
-router.post('/', isAuthenticatedGuard([PermissionEnum.ACTIONS_CREATE]), ActionsController.createAction);
-router.get('/:id', isAuthenticatedGuard([PermissionEnum.ACTIONS_READ]), ActionsController.getAction);
-router.put('/:id', isAuthenticatedGuard([PermissionEnum.ACTIONS_WRITE]), ActionsController.updateAction);
-router.delete('/:id', isAuthenticatedGuard([PermissionEnum.ACTIONS_DELETE]), ActionsController.deleteAction);
+router.get('/', isAuthenticatedGuard([PermissionEnum.ACTIONS_READ]), ActionsController.list);
+router.post('/', isAuthenticatedGuard([PermissionEnum.ACTIONS_CREATE]), ActionsController.create);
+router.get('/:id', isAuthenticatedGuard([PermissionEnum.ACTIONS_READ]), ActionsController.get);
+router.put('/:id', isAuthenticatedGuard([PermissionEnum.ACTIONS_WRITE]), ActionsController.update);
+router.delete('/:id', isAuthenticatedGuard([PermissionEnum.ACTIONS_DELETE]), ActionsController.delete);
 
 export default router;

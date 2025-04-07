@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "ActionType" AS ENUM ('add_inbound_rule', 'send_notification');
+CREATE TYPE "ActionType" AS ENUM ('add_inbound_rule', 'send_slack_notification', 'send_email_notification');
 
 -- CreateEnum
 CREATE TYPE "TriggerType" AS ENUM ('user_login', 'user_logout', 'user_created');

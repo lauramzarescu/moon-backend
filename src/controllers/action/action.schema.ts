@@ -12,15 +12,24 @@ export const addInboundRuleConfigSchema = z.object({
     protocol: z.string().min(1, 'Protocol is required'),
     portRange: z.string().min(1, 'Port/Range is required'),
     descriptionTemplate: z.string().optional(),
+    ip: z.string(),
 });
 export type AddInboundRuleConfig = z.infer<typeof addInboundRuleConfigSchema>;
 
-export const sendNotificationConfigSchema = z.object({
+export const sendSlackNotificationConfigSchema = z.object({
     channel: z.string().min(1, 'Channel/Type is required'),
     recipient: z.string().min(1, 'Recipient is required'),
     messageTemplate: z.string().min(1, 'Message Template is required'),
 });
-export type SendNotificationConfig = z.infer<typeof sendNotificationConfigSchema>;
+export type SendNotificationConfig = z.infer<typeof sendSlackNotificationConfigSchema>;
+
+export const sendEmailNotificationConfigSchema = z.object({
+    email: z.string().email('Invalid email address'),
+    subject: z.string().min(1, 'Subject is required'),
+    body: z.string().min(1, 'Body is required'),
+});
+
+export type SendEmailNotificationConfig = z.infer<typeof sendEmailNotificationConfigSchema>;
 
 const baseActionDefinitionSchema = z.object({
     id: z.string().uuid(),
@@ -44,11 +53,14 @@ export const createActionInputSchema = z
     })
     .refine(
         data => {
-            if (data.actionType === 'add_inbound_rule') {
+            if (data.actionType === ActionTypeEnum.add_inbound_rule) {
                 return addInboundRuleConfigSchema.safeParse(data.config).success;
             }
-            if (data.actionType === 'send_notification') {
-                return sendNotificationConfigSchema.safeParse(data.config).success;
+            if (data.actionType === ActionTypeEnum.send_slack_notification) {
+                return sendSlackNotificationConfigSchema.safeParse(data.config).success;
+            }
+            if (data.actionType === ActionTypeEnum.send_email_notification) {
+                return sendEmailNotificationConfigSchema.safeParse(data.config).success;
             }
             return true;
         },
@@ -75,8 +87,11 @@ export const updateActionInputSchema = updateActionBaseSchema.refine(
             if (data.actionType === ActionTypeEnum.add_inbound_rule) {
                 return addInboundRuleConfigSchema.safeParse(data.config).success;
             }
-            if (data.actionType === ActionTypeEnum.send_notification) {
-                return sendNotificationConfigSchema.safeParse(data.config).success;
+            if (data.actionType === ActionTypeEnum.send_slack_notification) {
+                return sendSlackNotificationConfigSchema.safeParse(data.config).success;
+            }
+            if (data.actionType === ActionTypeEnum.send_email_notification) {
+                return sendEmailNotificationConfigSchema.safeParse(data.config).success;
             }
         }
         return true;
@@ -90,7 +105,8 @@ export type UpdateActionDto = z.infer<typeof updateActionInputSchema>;
 
 export const actionTypeLabels: Record<ActionType, string> = {
     add_inbound_rule: 'Add Inbound Security Group Rule',
-    send_notification: 'Send Notification',
+    send_slack_notification: 'Send Slack Notification',
+    send_email_notification: 'Send Email Notification',
 };
 
 export const triggerTypeLabels: Record<TriggerType, string> = {

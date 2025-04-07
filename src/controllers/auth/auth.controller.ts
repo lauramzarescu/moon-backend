@@ -6,9 +6,12 @@ import moment from 'moment';
 import {loginSchema} from './auth.schema';
 import {prisma} from '../../config/db.config';
 import {UserController} from '../user/user.controller';
+import {AuditLogHelper} from '../audit-log/audit-log.helper';
+import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 
 export class AuthController {
     static userRepository = new UserRepository(prisma);
+    static auditHelper = new AuditLogHelper();
 
     constructor() {}
 
@@ -65,8 +68,20 @@ export class AuthController {
                     status: 'success',
                     requires2FAVerification: false,
                 });
-                return;
             }
+
+            await this.auditHelper.create({
+                userId: user.id,
+                organizationId: user.organizationId,
+                action: AuditLogEnum.USER_LOGIN,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: user.email,
+                    },
+                },
+            });
         } catch (error) {
             console.error(error);
             res.status(500).json({error: 'Login failed'});

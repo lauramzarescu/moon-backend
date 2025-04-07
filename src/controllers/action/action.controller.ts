@@ -3,17 +3,24 @@ import {prisma} from '../../config/db.config';
 import {ActionRepository} from '../../repositories/action/action.repository';
 import {z} from 'zod';
 import {createActionInputSchema, updateActionInputSchema} from './action.schema';
+import {AuthService} from '../../services/auth.service';
+import {UserRepository} from '../../repositories/user/user.repository';
 
 export class ActionsController {
     static actionRepository = new ActionRepository(prisma);
+    static readonly userRepository = new UserRepository(prisma);
 
     private constructor() {}
 
-    static listActions = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    static list = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         try {
+            const token = AuthService.decodeToken(req.headers.authorization);
+            const user = await this.userRepository.getOneWhere({id: token.userId});
+
             const actions = await this.actionRepository.findMany({
-                orderBy: {createdAt: 'desc'},
+                organizationId: user.organizationId,
             });
+
             res.json(actions);
         } catch (error) {
             console.error('Error listing actions:', error);
@@ -21,7 +28,7 @@ export class ActionsController {
         }
     };
 
-    static getAction = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    static get = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         const {id} = req.params;
         try {
             const action = await this.actionRepository.findOne(id);
@@ -38,8 +45,11 @@ export class ActionsController {
         }
     };
 
-    static createAction = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    static create = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         try {
+            const token = AuthService.decodeToken(req.headers.authorization);
+            const user = await this.userRepository.getOneWhere({id: token.userId});
+
             const validatedData = createActionInputSchema.parse(req.body);
 
             const newAction = await this.actionRepository.create({
@@ -48,6 +58,7 @@ export class ActionsController {
                 triggerType: validatedData.triggerType,
                 config: validatedData.config || {},
                 enabled: validatedData.enabled,
+                organizationId: user.organizationId,
             });
 
             res.status(201).json(newAction);
@@ -61,7 +72,7 @@ export class ActionsController {
         }
     };
 
-    static updateAction = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    static update = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         const {id} = req.params;
         try {
             const validatedData = updateActionInputSchema.parse(req.body);
@@ -91,7 +102,7 @@ export class ActionsController {
         }
     };
 
-    static deleteAction = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    static delete = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         const {id} = req.params;
         try {
             const existingAction = await this.actionRepository.findOne(id);

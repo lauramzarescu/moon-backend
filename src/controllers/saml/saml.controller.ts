@@ -10,10 +10,13 @@ import {SamlService} from '../../services/saml.service';
 import {Strategy} from 'passport-saml';
 import {prisma} from '../../config/db.config';
 import * as speakeasy from 'speakeasy';
+import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
+import {AuditLogHelper} from '../audit-log/audit-log.helper';
 
 export class SamlController {
     static samlConfigRepository = new SamlConfigRepository(prisma);
     static userRepository = new UserRepository(prisma);
+    static auditHelper = new AuditLogHelper();
 
     static login = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         try {
@@ -89,9 +92,25 @@ export class SamlController {
         res.send('Login successful');
     };
 
-    static logout = (req: express.Request, res: express.Response) => {
+    static logout = async (req: express.Request, res: express.Response) => {
         try {
+            const token = AuthService.decodeToken(req.headers.authorization?.split(' ')[1]);
+            const user = await this.userRepository.getOneWhere({id: token.userId});
+
             this.logoutProcess(req, res);
+
+            await this.auditHelper.create({
+                userId: user.id,
+                organizationId: user.organizationId,
+                action: AuditLogEnum.USER_LOGOUT,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: user.email,
+                    },
+                },
+            });
         } catch (error) {
             console.error('Logout error:', error);
             res.status(500).send('Error during logout');

@@ -15,6 +15,8 @@ import accessControlRoute from './routes/access-control.route';
 import awsRoutes from './routes/aws.routes';
 import healthcheckRoute from './routes/healthcheck.route';
 import {initPrisma} from './config/db.config';
+import {extractIpMiddleware} from './middlewares/extract-ip.middleware';
+import actionRoute from './routes/action.route';
 
 dotenv.config();
 
@@ -57,6 +59,8 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+router.use(extractIpMiddleware);
+
 router.use('/v1/status', healthcheckRoute);
 router.use('/v1/auth', authRoute);
 router.use('/v1/users', userRoute);
@@ -65,6 +69,7 @@ router.use('/v1/organizations', organizationRoute);
 router.use('/v1/services', servicesConfigRoute);
 router.use('/v1/access-control', accessControlRoute);
 router.use('/v1/aws', awsRoutes);
+router.use('/v1/actions', actionRoute);
 
 app.use(router);
 
