@@ -235,7 +235,7 @@ export class UserController {
             }
 
             if (user.twoFactorSecret && user.twoFactorVerified) {
-                res.status(400).json({error: 'You must verify your 2FA before deleting the configuration.'});
+                res.status(400).json({error: 'You must verify your 2FA before changing password.'});
                 return;
             }
 

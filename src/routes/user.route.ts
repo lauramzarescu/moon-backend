@@ -9,7 +9,7 @@ const router = express.Router();
 
 router.get('/', isAuthenticatedGuard([PermissionEnum.USER_READ]), UserController.getAll);
 
-router.get('/me', isAuthenticatedGuard([PermissionEnum.USER_READ]), UserController.getUserDetails);
+router.get('/me', userInfoMiddleware, isAuthenticatedGuard([PermissionEnum.USER_READ]), UserController.getUserDetails);
 
 router.get(
     '/:id',
@@ -39,7 +39,12 @@ router.post(
 );
 
 // 2FA routes
-router.get('/2fa/status', isAuthenticatedGuard([PermissionEnum.USER_READ]), UserController.get2FAStatus);
+router.get(
+    '/2fa/status',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    UserController.get2FAStatus
+);
 router.post(
     '/2fa/setup',
     userInfoMiddleware,
@@ -47,7 +52,12 @@ router.post(
     UserController.setup2FA
 );
 router.post('/2fa/verify-session', UserController.verifySession2FA);
-router.post('/2fa/verify', isAuthenticatedGuard([PermissionEnum.USER_READ]), UserController.verify2FACode);
+router.post(
+    '/2fa/verify',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    UserController.verify2FACode
+);
 router.post(
     '/2fa/disable',
     userInfoMiddleware,
