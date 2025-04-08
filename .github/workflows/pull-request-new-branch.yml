@@ -46,6 +46,6 @@ jobs:
       - name: Build and push multi-platform Docker image
         run: |
           echo "Building and pushing Docker image with version: ${BRANCH_NAME}-${SHORT_SHA}"
-#          make build-push-multi VERSION=${{ env.BRANCH_NAME }}-${{ env.SHORT_SHA }}
-#          # Also tag as latest
-#          make build-push-multi VERSION=latest
+          make build-push-multi VERSION=${{ env.BRANCH_NAME }}-${{ env.SHORT_SHA }}
+          # Also tag as latest
+          make build-push-multi VERSION=latest
