@@ -51,7 +51,11 @@ export class AuditLogHelper {
             // Execute each matching action
             for (const action of actionsToExecute) {
                 try {
-                    await this.actionHelper.execute(action, data.details.ip);
+                    await this.actionHelper.execute(
+                        action,
+                        data.details.ip,
+                        (data.details.info?.email as string) || '-'
+                    );
                 } catch (error) {
                     console.error(`Error executing action ${action.id}:`, error);
                 }

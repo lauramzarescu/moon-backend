@@ -54,7 +54,6 @@ export class EC2Service {
         protocol: string = 'tcp',
         description?: string
     ): Promise<void> => {
-        console.log(protocol);
         const params = {
             GroupId: securityGroupId,
             IpPermissions: [
@@ -71,7 +70,6 @@ export class EC2Service {
                 },
             ],
         };
-        console.log(params);
 
         try {
             await backoffAndRetry(() => this.ec2Client.send(new AuthorizeSecurityGroupIngressCommand(params)));

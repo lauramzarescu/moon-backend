@@ -14,19 +14,22 @@ export class ActionHelper {
      * Executes an action based on its type and configuration.
      * @param action The action definition to execute.
      * @param ip The IP address to use for the action.
+     * @param userEmail
      */
-    public async execute(action: ActionDefinition, ip: string = '127.0.0.1') {
+    public async execute(action: ActionDefinition, ip: string = '127.0.0.1', userEmail = '-') {
         switch (action.actionType) {
             case ActionType.add_inbound_rule:
                 const actionConfig = action.config as AddInboundRuleConfig;
-                await this.executeInboundRule(actionConfig);
+                actionConfig.ip = ip;
+
+                await this.executeInboundRule(actionConfig, userEmail);
                 break;
             default:
                 console.error('Unknown action type');
         }
     }
 
-    public async executeInboundRule(config: AddInboundRuleConfig) {
+    public async executeInboundRule(config: AddInboundRuleConfig, userEmail: string) {
         console.log('Executing inbound rule', config);
 
         // Check if the port is a single port or a port range
@@ -59,7 +62,6 @@ export class ActionHelper {
             );
         }
 
-        console.log(config.protocol);
         // Execute the EC2 security group rule addition
         return this.ec2Service.addInboundRuleForClientIp(
             config.securityGroupId,
@@ -67,7 +69,7 @@ export class ActionHelper {
             fromPort,
             toPort,
             config.protocol,
-            config.descriptionTemplate
+            config.descriptionTemplate || userEmail
         );
     }
 
