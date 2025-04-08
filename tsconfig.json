@@ -7,11 +7,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist",
-    "rootDir": "./src",
-    "typeRoots": [
-      "./node_modules/@types",
-      "./src/types/express/index.d.ts"
-    ]
+    "rootDir": "./src"
   },
   "include": [
     "src/**/*"
