@@ -42,3 +42,5 @@ idp-private-key.pem
 idp-public-cert.pem
 
 docker-compose.yml
+
+.cursor
