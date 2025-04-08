@@ -17,16 +17,19 @@ import {prisma} from '../../config/db.config';
 import * as QRCode from 'qrcode';
 import {OrganizationRepository} from '../../repositories/organization/organization.repository';
 import bcrypt from 'bcrypt';
-import {LoginType} from '@prisma/client';
+import {LoginType, User} from '@prisma/client';
 import {UAParser} from 'ua-parser-js';
 import moment from 'moment/moment';
 import * as speakeasy from 'speakeasy';
+import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
+import {AuditLogHelper} from '../audit-log/audit-log.helper';
 
 const TWO_FACTOR_EXPIRATION_DAYS = 7;
 
 export class UserController {
     static userRepository = new UserRepository(prisma);
     static organizationRepository = new OrganizationRepository(prisma);
+    static auditHelper = new AuditLogHelper();
 
     private static generateDeviceFingerprint(req: express.Request): string {
         const parser = new UAParser(req.headers['user-agent']);
@@ -88,8 +91,7 @@ export class UserController {
 
     static getUserDetails = async (req: express.Request, res: express.Response) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const user = await this.userRepository.getOne(token.userId);
+            const user = res.locals.user as User;
 
             const me = userDetailsResponseSchema.parse(user);
             me.name = user.name || user.nameID || 'N/A';
@@ -102,7 +104,6 @@ export class UserController {
 
     static getAll = async (req: express.Request, res: express.Response) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
             const users = await this.userRepository.getAll({role: 'asc'});
 
             res.json(users);
@@ -141,16 +142,30 @@ export class UserController {
 
     static create = async (req: express.Request, res: express.Response) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const requesterUser = await this.userRepository.getOneWhere({id: token.userId});
-
+            const requesterUser = res.locals.user as User;
             const validatedData = userCreateSchema.parse(req.body);
+
             validatedData.organizationId = requesterUser.organizationId;
             validatedData.password = await bcrypt.hash(validatedData.password as string, 10);
 
             const user = await this.userRepository.create(validatedData);
 
             res.status(201).json(user);
+
+            await this.auditHelper.create({
+                userId: requesterUser?.id || '-',
+                organizationId: requesterUser?.organizationId || '-',
+                action: AuditLogEnum.USER_CREATED,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: requesterUser?.email || '-',
+                        description: `User ${user.email} created`,
+                        objectNew: user,
+                    },
+                },
+            });
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
@@ -158,10 +173,27 @@ export class UserController {
 
     static update = async (req: express.Request, res: express.Response) => {
         try {
+            const requesterUser = res.locals.user as User;
             const validatedData = userUpdateSchema.parse(req.body);
             const user = await this.userRepository.update(req.params.id, validatedData);
 
             res.json(user);
+
+            await this.auditHelper.create({
+                userId: requesterUser?.id || '-',
+                organizationId: requesterUser?.organizationId || '-',
+                action: AuditLogEnum.USER_UPDATED,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: requesterUser?.email || '-',
+                        description: `User ${user.email} updated`,
+                        objectOld: requesterUser,
+                        objectNew: user,
+                    },
+                },
+            });
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
@@ -169,9 +201,25 @@ export class UserController {
 
     static delete = async (req: express.Request, res: express.Response) => {
         try {
+            const requesterUser = res.locals.user as User;
             const user = await this.userRepository.delete(req.params.id);
 
             res.json(user);
+
+            await this.auditHelper.create({
+                userId: requesterUser?.id || '-',
+                organizationId: requesterUser?.organizationId || '-',
+                action: AuditLogEnum.USER_DELETED,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: requesterUser?.email || '-',
+                        description: `User ${user.email} deleted`,
+                        objectOld: user,
+                    },
+                },
+            });
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
@@ -179,8 +227,7 @@ export class UserController {
 
     static changePassword = async (req: express.Request, res: express.Response) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const user = await this.userRepository.getOne(token.userId);
+            const user = res.locals.user as User;
 
             if (!user.password || user.loginType !== LoginType.local) {
                 res.status(400).json({error: 'Password change is only available for local accounts'});
@@ -202,11 +249,25 @@ export class UserController {
 
             const hashedPassword = await bcrypt.hash(validatedData.newPassword, 10);
 
-            await this.userRepository.update(token.userId, {
+            await this.userRepository.update(user.id, {
                 password: hashedPassword,
             });
 
             res.json({success: true, message: 'Password changed successfully'});
+
+            await this.auditHelper.create({
+                userId: user?.id || '-',
+                organizationId: user?.organizationId || '-',
+                action: AuditLogEnum.USER_PASSWORD_CHANGED,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: user?.email || '-',
+                        description: `User ${user.email} changed password`,
+                    },
+                },
+            });
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
@@ -214,8 +275,7 @@ export class UserController {
 
     static changePasswordWith2FA = async (req: express.Request, res: express.Response) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const user = await this.userRepository.getOne(token.userId);
+            const user = res.locals.user as User;
 
             if (!user.password || user.loginType !== LoginType.local) {
                 res.status(400).json({error: 'Password change is only available for local accounts'});
@@ -248,15 +308,29 @@ export class UserController {
 
             const hashedPassword = await bcrypt.hash(validatedData.newPassword, 10);
 
-            await this.userRepository.update(token.userId, {
+            await this.userRepository.update(user.id, {
                 password: hashedPassword,
             });
 
-            await this.userRepository.update(token.userId, {
+            await this.userRepository.update(user.id, {
                 verifiedDevices: [],
             });
 
             res.json({success: true, message: 'Password changed successfully with 2FA verification'});
+
+            await this.auditHelper.create({
+                userId: user?.id || '-',
+                organizationId: user?.organizationId || '-',
+                action: AuditLogEnum.USER_PASSWORD_CHANGED,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: user?.email || '-',
+                        description: `User ${user.email} changed password`,
+                    },
+                },
+            });
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }
@@ -264,8 +338,7 @@ export class UserController {
 
     static get2FAStatus = async (req: express.Request, res: express.Response) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const user = await this.userRepository.getOne(token.userId);
+            const user = res.locals.user as User;
 
             res.json({
                 enabled: !!user.twoFactorSecret,
@@ -278,8 +351,7 @@ export class UserController {
 
     static setup2FA = async (req: express.Request, res: express.Response) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const user = await this.userRepository.getOne(token.userId);
+            const user = res.locals.user as User;
             const organization = await this.organizationRepository.getOne(user.organizationId);
 
             // Generate a new secret
@@ -288,7 +360,7 @@ export class UserController {
             });
 
             // Save the secret temporarily (not verified yet)
-            await this.userRepository.update(token.userId, {
+            await this.userRepository.update(user.id, {
                 twoFactorSecret: secret.base32,
                 twoFactorVerified: false,
             });
@@ -300,6 +372,20 @@ export class UserController {
                 secret: secret.base32,
                 qrCode: qrCodeUrl,
             });
+
+            await this.auditHelper.create({
+                userId: user?.id || '-',
+                organizationId: user?.organizationId || '-',
+                action: AuditLogEnum.USER_2FA_ATTEMPT,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: user?.email || '-',
+                        description: `User ${user.email} attempted to set up 2FA`,
+                    },
+                },
+            });
         } catch (error: any) {
             console.log(error);
             res.status(500).json({error: error.message});
@@ -308,8 +394,7 @@ export class UserController {
 
     static verify2FACode = async (req: express.Request, res: express.Response) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const user = await this.userRepository.getOne(token.userId);
+            const user = res.locals.user as User;
 
             if (!user.twoFactorSecret) {
                 res.status(400).json({error: '2FA not set up yet'});
@@ -329,11 +414,11 @@ export class UserController {
                 return;
             }
 
-            await this.userRepository.update(token.userId, {
+            await this.userRepository.update(user.id, {
                 twoFactorVerified: true,
             });
 
-            await this.updateVerifiedDevices(token.userId, req);
+            await this.updateVerifiedDevices(user.id, req);
 
             res.json({success: true, message: '2FA verification successful'});
         } catch (error: any) {
@@ -395,8 +480,7 @@ export class UserController {
 
     static disable2FA = async (req: express.Request, res: express.Response) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const user = await this.userRepository.getOne(token.userId);
+            const user = res.locals.user as User;
 
             if (!user.twoFactorSecret) {
                 res.status(400).json({error: '2FA is not enabled'});
@@ -416,13 +500,27 @@ export class UserController {
                 return;
             }
 
-            await this.userRepository.update(token.userId, {
+            await this.userRepository.update(user.id, {
                 twoFactorSecret: null,
                 twoFactorVerified: false,
                 verifiedDevices: [],
             });
 
             res.json({success: true, message: '2FA has been disabled'});
+
+            await this.auditHelper.create({
+                userId: user?.id || '-',
+                organizationId: user?.organizationId || '-',
+                action: AuditLogEnum.USER_2FA_DISABLED,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: user?.email || '-',
+                        description: `User ${user.email} disabled 2FA`,
+                    },
+                },
+            });
         } catch (error: any) {
             res.status(500).json({error: error.message});
         }

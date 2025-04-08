@@ -5,6 +5,11 @@ export enum AuditLogEnum {
     USER_CREATED = 'user:created',
     USER_UPDATED = 'user:updated',
     USER_DELETED = 'user:deleted',
+    USER_2FA_ATTEMPT = 'user:2fa:attempt',
+    USER_2FA_ENABLED = 'user:2fa:enabled',
+    USER_2FA_DISABLED = 'user:2fa:disabled',
+    USER_PASSWORD_RESET = 'user:password:reset',
+    USER_PASSWORD_CHANGED = 'user:password:changed',
 
     // Action events
     ACTION_CREATED = 'action:created',

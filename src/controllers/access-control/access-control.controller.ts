@@ -4,10 +4,13 @@ import {accessControlCreateSchema} from './access-control.schema';
 import {UserRepository} from '../../repositories/user/user.repository';
 import {prisma} from '../../config/db.config';
 import {User} from '@prisma/client';
+import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
+import {AuditLogHelper} from '../audit-log/audit-log.helper';
 
 export class AccessControlController {
     protected repository = new AccessControlRepository(prisma);
     protected userRepository = new UserRepository(prisma);
+    protected auditHelper = new AuditLogHelper();
 
     addToList = async (req: Request, res: Response) => {
         try {
@@ -22,6 +25,21 @@ export class AccessControlController {
             });
 
             res.status(201).json(result);
+
+            await this.auditHelper.create({
+                userId: user?.id || '-',
+                organizationId: user?.organizationId || '-',
+                action: AuditLogEnum.ACCESS_CONTROL_CREATED,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: user?.email || '-',
+                        description: `Access control created for ${email}`,
+                        objectNew: result,
+                    },
+                },
+            });
         } catch (error) {
             console.log(error);
             res.status(500).json({message: 'Internal server error'});
@@ -39,6 +57,21 @@ export class AccessControlController {
                 message: 'Access control disabled successfully',
                 deletedCount: result.count,
             });
+
+            await this.auditHelper.create({
+                userId: user?.id || '-',
+                organizationId: user?.organizationId || '-',
+                action: AuditLogEnum.ACCESS_CONTROL_DELETED,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: user?.email || '-',
+                        description: `Access control disabled for organization ${user.organizationId}`,
+                        objectOld: result,
+                    },
+                },
+            });
         } catch (error) {
             console.log(error);
             res.status(500).json({message: 'Internal server error'});
@@ -48,9 +81,25 @@ export class AccessControlController {
     removeFromList = async (req: Request, res: Response) => {
         try {
             const {id} = req.params;
+            const user = res.locals.user as User;
             const result = await this.repository.delete(id);
 
             res.status(200).json(result);
+
+            await this.auditHelper.create({
+                userId: user?.id || '-',
+                organizationId: user?.organizationId || '-',
+                action: AuditLogEnum.ACCESS_CONTROL_UPDATED,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: user?.email || '-',
+                        description: `Access control removed for ${result.email}`,
+                        objectOld: result,
+                    },
+                },
+            });
         } catch (error) {
             console.log(error);
             res.status(500).json({message: 'Internal server error'});
