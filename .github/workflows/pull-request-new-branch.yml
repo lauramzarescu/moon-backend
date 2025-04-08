@@ -35,26 +35,17 @@ jobs:
       - name: Generate version
         id: version
         run: |
-          # Print the raw GitHub ref for debugging
-          echo "Raw GITHUB_REF: ${GITHUB_REF}"
-          
-          # Set the branch name with more verbose output
           BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/} | sed 's/\//-/g')
           echo "Extracted BRANCH_NAME: ${BRANCH_NAME}"
           echo "BRANCH_NAME=${BRANCH_NAME}" >> $GITHUB_ENV
           
-          # Set the short SHA with more verbose output
           SHORT_SHA=$(git rev-parse --short HEAD)
           echo "Extracted SHORT_SHA: ${SHORT_SHA}"
           echo "SHORT_SHA=${SHORT_SHA}" >> $GITHUB_ENV
-          
-          # Verify the environment variables were set
-          echo "Environment variable check:"
-          echo "BRANCH_NAME from env: $BRANCH_NAME"
-          echo "SHORT_SHA from env: $SHORT_SHA"
 
-#      - name: Build and push multi-platform Docker image
-#        run: |
+      - name: Build and push multi-platform Docker image
+        run: |
+          echo "Building and pushing Docker image with version: ${BRANCH_NAME}-${SHORT_SHA}"
 #          make build-push-multi VERSION=${{ env.BRANCH_NAME }}-${{ env.SHORT_SHA }}
 #          # Also tag as latest
 #          make build-push-multi VERSION=latest
