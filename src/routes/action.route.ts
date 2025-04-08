@@ -2,8 +2,11 @@ import express from 'express';
 import {ActionsController} from '../controllers/action/action.controller';
 import {isAuthenticatedGuard} from '../middlewares/is-authenticated.middleware';
 import {PermissionEnum} from '../enums/rbac/permission.enum';
+import {userInfoMiddleware} from '../middlewares/user-info.middleware';
 
 const router = express.Router();
+
+router.use(userInfoMiddleware);
 
 router.get('/', isAuthenticatedGuard([PermissionEnum.ACTIONS_READ]), ActionsController.list);
 router.post('/', isAuthenticatedGuard([PermissionEnum.ACTIONS_CREATE]), ActionsController.create);

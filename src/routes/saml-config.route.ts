@@ -2,8 +2,11 @@ import express from 'express';
 import {SamlController} from '../controllers/saml/saml.controller';
 import {isAuthenticatedGuard} from '../middlewares/is-authenticated.middleware';
 import {PermissionEnum} from '../enums/rbac/permission.enum';
+import {userInfoMiddleware} from '../middlewares/user-info.middleware';
 
 const router = express.Router();
+
+router.use(userInfoMiddleware);
 
 router.get('/', isAuthenticatedGuard([PermissionEnum.SAML_CONFIGURATION_READ]), SamlController.getConfiguration);
 

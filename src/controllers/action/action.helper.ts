@@ -15,11 +15,7 @@ export class ActionHelper {
      * @param action The action definition to execute.
      * @param ip The IP address to use for the action.
      */
-    public async execute(action: ActionDefinition, ip: string = '10.20.8.106') {
-        if (!ip) {
-            throw new Error('IP address is required for executing the action');
-        }
-
+    public async execute(action: ActionDefinition, ip: string = '127.0.0.1') {
         switch (action.actionType) {
             case ActionType.add_inbound_rule:
                 const actionConfig = action.config as AddInboundRuleConfig;

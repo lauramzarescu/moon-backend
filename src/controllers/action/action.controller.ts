@@ -2,21 +2,22 @@ import * as express from 'express';
 import {prisma} from '../../config/db.config';
 import {ActionRepository} from '../../repositories/action/action.repository';
 import {z} from 'zod';
-import {createActionInputSchema, updateActionInputSchema} from './action.schema';
-import {AuthService} from '../../services/auth.service';
+import {ActionDefinition, createActionInputSchema, updateActionInputSchema} from './action.schema';
 import {UserRepository} from '../../repositories/user/user.repository';
+import {User} from '@prisma/client';
+import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
+import {AuditLogHelper} from '../audit-log/audit-log.helper';
 
 export class ActionsController {
     static actionRepository = new ActionRepository(prisma);
     static readonly userRepository = new UserRepository(prisma);
+    static readonly auditHelper = new AuditLogHelper();
 
     private constructor() {}
 
     static list = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const user = await this.userRepository.getOneWhere({id: token.userId});
-
+            const user = res.locals.user as User;
             const actions = await this.actionRepository.findMany({
                 organizationId: user.organizationId,
             });
@@ -47,21 +48,34 @@ export class ActionsController {
 
     static create = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const user = await this.userRepository.getOneWhere({id: token.userId});
-
+            const user = res.locals.user as User;
             const validatedData = createActionInputSchema.parse(req.body);
 
-            const newAction = await this.actionRepository.create({
+            const newAction = (await this.actionRepository.create({
                 name: validatedData.name,
                 actionType: validatedData.actionType,
                 triggerType: validatedData.triggerType,
                 config: validatedData.config || {},
                 enabled: validatedData.enabled,
                 organizationId: user.organizationId,
-            });
+            })) as unknown as ActionDefinition;
 
             res.status(201).json(newAction);
+
+            await this.auditHelper.create({
+                userId: user?.id || '-',
+                organizationId: user?.organizationId || '-',
+                action: AuditLogEnum.ACTION_CREATED,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: user?.email || '-',
+                        description: `Action ${newAction.name} created`,
+                        objectNew: newAction,
+                    },
+                },
+            });
         } catch (error) {
             if (error instanceof z.ZodError) {
                 res.status(400).json({error: 'Validation failed', details: error.flatten().fieldErrors});
@@ -74,7 +88,9 @@ export class ActionsController {
 
     static update = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         const {id} = req.params;
+
         try {
+            const user = res.locals.user as User;
             const validatedData = updateActionInputSchema.parse(req.body);
 
             const existingAction = await this.actionRepository.findOne(id);
@@ -83,15 +99,31 @@ export class ActionsController {
                 return;
             }
 
-            const updatedAction = await this.actionRepository.update(id, {
+            const updatedAction = (await this.actionRepository.update(id, {
                 name: validatedData.name,
                 actionType: validatedData.actionType,
                 triggerType: validatedData.triggerType,
                 config: validatedData.config !== undefined ? validatedData.config || {} : undefined,
                 enabled: validatedData.enabled,
-            });
+            })) as unknown as ActionDefinition;
 
             res.json(updatedAction);
+
+            await this.auditHelper.create({
+                userId: user?.id || '-',
+                organizationId: user?.organizationId || '-',
+                action: AuditLogEnum.ACTION_UPDATED,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: user?.email || '-',
+                        description: `Action ${updatedAction.name} updated`,
+                        objectOld: existingAction,
+                        objectNew: updatedAction,
+                    },
+                },
+            });
         } catch (error) {
             if (error instanceof z.ZodError) {
                 res.status(400).json({error: 'Validation failed', details: error.flatten().fieldErrors});
@@ -105,7 +137,9 @@ export class ActionsController {
     static delete = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         const {id} = req.params;
         try {
-            const existingAction = await this.actionRepository.findOne(id);
+            const user = res.locals.user as User;
+            const existingAction = (await this.actionRepository.findOne(id)) as unknown as ActionDefinition;
+
             if (!existingAction) {
                 res.status(404).json({error: 'Action not found'});
                 return;
@@ -114,6 +148,21 @@ export class ActionsController {
             await this.actionRepository.delete(id);
 
             res.status(204).send();
+
+            await this.auditHelper.create({
+                userId: user?.id || '-',
+                organizationId: user?.organizationId || '-',
+                action: AuditLogEnum.ACTION_DELETED,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: user?.email || '-',
+                        description: `Action ${existingAction.name} deleted`,
+                        objectOld: existingAction,
+                    },
+                },
+            });
         } catch (error: any) {
             console.error(`Error deleting action ${id}:`, error);
             res.status(500).json({error: 'Delete action failed'});

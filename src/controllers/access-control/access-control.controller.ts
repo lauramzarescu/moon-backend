@@ -1,9 +1,9 @@
 import {Request, Response} from 'express';
 import {AccessControlRepository} from '../../repositories/access-control/access-control.repository';
 import {accessControlCreateSchema} from './access-control.schema';
-import {AuthService} from '../../services/auth.service';
 import {UserRepository} from '../../repositories/user/user.repository';
 import {prisma} from '../../config/db.config';
+import {User} from '@prisma/client';
 
 export class AccessControlController {
     protected repository = new AccessControlRepository(prisma);
@@ -12,9 +12,7 @@ export class AccessControlController {
     addToList = async (req: Request, res: Response) => {
         try {
             const {email, description} = req.body;
-            const token = AuthService.decodeToken(req.headers.authorization);
-
-            const user = await this.userRepository.getOneWhere({id: token.userId});
+            const user = res.locals.user as User;
 
             const validatedData = accessControlCreateSchema.parse({email, description});
             const result = await this.repository.create({
@@ -32,9 +30,7 @@ export class AccessControlController {
 
     disableAccessControl = async (req: Request, res: Response) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const user = await this.userRepository.getOneWhere({id: token.userId});
-
+            const user = res.locals.user as User;
             const result = await this.repository.deleteMany({
                 organizationId: user.organizationId,
             });
@@ -63,8 +59,7 @@ export class AccessControlController {
 
     getList = async (req: Request, res: Response) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const user = await this.userRepository.getOneWhere({id: token.userId});
+            const user = res.locals.user as User;
             const result = await this.repository.findMany({organizationId: user.organizationId});
 
             res.status(200).json(result);

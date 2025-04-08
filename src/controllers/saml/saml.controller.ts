@@ -94,8 +94,7 @@ export class SamlController {
 
     static logout = async (req: express.Request, res: express.Response) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization?.split(' ')[1]);
-            const user = await this.userRepository.getOneWhere({id: token.userId});
+            const user = res.locals.user as User;
 
             this.logoutProcess(req, res);
 
@@ -182,9 +181,7 @@ export class SamlController {
 
     static createConfiguration = async (req: express.Request, res: express.Response) => {
         try {
-            console.log('Creating SAML config...');
-            const token = AuthService.decodeToken(req.headers.authorization?.split(' ')[1]);
-            const user = await this.userRepository.getOneWhere({id: token.userId});
+            const user = res.locals.user as User;
 
             const validatedData = samlConfigSchema.parse(req.body);
             const samlConfig: SamlConfig = await this.samlConfigRepository.create({
@@ -205,9 +202,7 @@ export class SamlController {
 
     static getConfiguration = async (req: express.Request, res: express.Response) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const user = await this.userRepository.getOneWhere({id: token.userId});
-
+            const user = res.locals.user as User;
             const configuration = await this.samlConfigRepository.findOneWhere({organizationId: user.organizationId});
 
             if (configuration) {
@@ -264,8 +259,7 @@ export class SamlController {
         }
 
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const user = await this.userRepository.getOne(token.userId);
+            const user = res.locals.user as User;
 
             if (user.twoFactorSecret && user.twoFactorVerified) {
                 res.status(400).json({error: 'You must verify your 2FA before deleting the configuration.'});
@@ -282,8 +276,7 @@ export class SamlController {
 
     static delete2FAConfiguration = async (req: express.Request, res: express.Response) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const user = await this.userRepository.getOne(token.userId);
+            const user = res.locals.user as User;
 
             if (!user.twoFactorSecret || !user.twoFactorVerified) {
                 res.status(400).json({error: '2FA is not enabled or verified for this account'});

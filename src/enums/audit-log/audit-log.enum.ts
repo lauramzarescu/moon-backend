@@ -26,6 +26,7 @@ export enum AuditLogEnum {
     AWS_CLUSTER_CREATED = 'aws:cluster:created',
     AWS_CLUSTER_UPDATED = 'aws:cluster:updated',
     AWS_CLUSTER_DELETED = 'aws:cluster:deleted',
+    AWS_INFO_GENERATED = 'aws:info:generated',
 
     AWS_SERVICE_CREATED = 'aws:service:created',
     AWS_SERVICE_UPDATED = 'aws:service:updated',

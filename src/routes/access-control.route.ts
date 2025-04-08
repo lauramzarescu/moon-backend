@@ -2,9 +2,12 @@ import {Router} from 'express';
 import {AccessControlController} from '../controllers/access-control/access-control.controller';
 import {isAuthenticatedGuard} from '../middlewares/is-authenticated.middleware';
 import {PermissionEnum} from '../enums/rbac/permission.enum';
+import {userInfoMiddleware} from '../middlewares/user-info.middleware';
 
 const router = Router();
 const controller = new AccessControlController();
+
+router.use(userInfoMiddleware);
 
 router.post('/', isAuthenticatedGuard([PermissionEnum.ACCESS_CONTROL_WRITE]), controller.addToList);
 

@@ -3,6 +3,7 @@ import {AuthController} from '../controllers/auth/auth.controller';
 import {SamlController} from '../controllers/saml/saml.controller';
 import {isAuthenticatedGuard} from '../middlewares/is-authenticated.middleware';
 import {checkAccessControlPasswordGuard} from '../middlewares/access-control.middleware';
+import {userInfoMiddleware} from '../middlewares/user-info.middleware';
 
 const router = express.Router();
 
@@ -18,7 +19,7 @@ router.get('/metadata', SamlController.metadata);
 
 router.get('/success', isAuthenticatedGuard([]), SamlController.loginSuccess);
 
-router.post('/logout', isAuthenticatedGuard([]), SamlController.logout);
+router.post('/logout', userInfoMiddleware, isAuthenticatedGuard([]), SamlController.logout);
 
 router.post('/saml/logout', isAuthenticatedGuard([]), SamlController.samlLogout);
 

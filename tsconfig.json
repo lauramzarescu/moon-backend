@@ -9,7 +9,8 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "typeRoots": [
-      "./src/types"
+      "./node_modules/@types",
+      "./src/types/express/index.d.ts"
     ]
   },
   "include": [
