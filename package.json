@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "prisma": {
+    "schema": "./src/prisma/schema.prisma"
+  },
   "scripts": {
     "build": "tsc",
     "start": "tsc && node dist/index.js --max-old-space-size=4096",
@@ -10,6 +13,9 @@
     "lint": "eslint . --ext .ts",
     "fix-style": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json}\"",
     "test": "npm test",
+    "prisma-migration-dev": "npx prisma migrate dev --schema ./src/prisma/schema.prisma",
+    "prisma-migration-create": "npx prisma migrate dev --create-only --schema ./src/prisma/schema.prisma",
+    "prisma-push": "npx prisma db push",
     "prisma-migration": "npx prisma migrate deploy --schema ./src/prisma/schema.prisma",
     "prisma-types": "npx prisma generate --schema ./src/prisma/schema.prisma"
   },

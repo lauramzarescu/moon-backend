@@ -38,7 +38,8 @@ export const checkAccessControlGuard = async (req: Request, res: Response, next:
 /** Only for login endpoint with password */
 export const checkAccessControlPasswordGuard = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const {email} = req.body;
+        let {email} = req.body;
+        email = email.toLowerCase();
 
         const userRepository = new UserRepository(prisma);
         const samlConfigRepository = new SamlConfigRepository(prisma);

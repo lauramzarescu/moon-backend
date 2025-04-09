@@ -5,8 +5,13 @@ import {SocketDetailsService} from '../services/socket.service';
 import {AuthService} from '../services/auth.service';
 import * as cookie from 'cookie';
 import {SOCKET_EVENTS} from '../constants/socket-events';
+import {UserRepository} from '../repositories/user/user.repository';
+import {prisma} from './db.config';
+import {JwtInterface} from '../interfaces/jwt/jwt.interface';
 
 export const app: Express = express();
+app.set('trust proxy', true);
+
 export const httpServer = createServer(app);
 export const io = new Server(httpServer, {
     cors: {
@@ -20,6 +25,7 @@ export const io = new Server(httpServer, {
 
 const socketDetailsService = SocketDetailsService.getInstance();
 const connectedClients = new Map();
+const userRepository = new UserRepository(prisma);
 
 // Interval management constants
 const MIN_INTERVAL = 3;
@@ -31,9 +37,10 @@ const HEALTH_CHECK_WINDOW = 5;
 let currentInterval = MIN_INTERVAL;
 let successfulRequestsCount = 0;
 
-interface AuthenticatedSocket extends Socket {
+export interface AuthenticatedSocket extends Socket {
     userId: string;
-    userInfo?: any;
+    userInfo?: JwtInterface & {email: string; organizationId: string};
+    ipAddress?: string;
 }
 
 interface ClientInfo {
@@ -136,7 +143,7 @@ const scheduleNextExecution = (client: ClientInfo, userId: string) => {
     }, client.intervalTime);
 };
 
-io.use((socket: Socket, next) => {
+io.use(async (socket: Socket, next) => {
     try {
         console.log(`[AUTH] New connection attempt from ${socket.id}`);
         const cookieHeader = socket.handshake.headers.cookie;
@@ -146,7 +153,6 @@ io.use((socket: Socket, next) => {
         }
 
         const cookies = cookie.parse(cookieHeader);
-
         const token = cookies['token'];
 
         if (!token) {
@@ -155,8 +161,23 @@ io.use((socket: Socket, next) => {
 
         const decoded = AuthService.decodeToken(token);
         const authSocket = socket as AuthenticatedSocket;
+        const user = await userRepository.getOne(decoded.userId);
+
         authSocket.userId = decoded.userId;
-        authSocket.userInfo = decoded;
+        authSocket.userInfo = {
+            ...decoded,
+            email: user.email,
+            organizationId: user.organizationId || 'unknown',
+        };
+        authSocket.ipAddress =
+            (typeof socket.handshake.headers['x-forwarded-for'] === 'string'
+                ? (socket.handshake.headers['x-forwarded-for'] as string).split(',')[0]?.trim()
+                : Array.isArray(socket.handshake.headers['x-forwarded-for'])
+                  ? socket.handshake.headers['x-forwarded-for'][0]?.split(',')[0]?.trim()
+                  : undefined) ||
+            (socket.handshake.headers['x-real-ip'] as string) ||
+            (socket.handshake.headers['cf-connecting-ip'] as string) ||
+            socket.handshake.address;
 
         next();
     } catch (error) {

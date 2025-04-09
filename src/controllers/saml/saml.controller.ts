@@ -10,10 +10,13 @@ import {SamlService} from '../../services/saml.service';
 import {Strategy} from 'passport-saml';
 import {prisma} from '../../config/db.config';
 import * as speakeasy from 'speakeasy';
+import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
+import {AuditLogHelper} from '../audit-log/audit-log.helper';
 
 export class SamlController {
     static samlConfigRepository = new SamlConfigRepository(prisma);
     static userRepository = new UserRepository(prisma);
+    static auditHelper = new AuditLogHelper();
 
     static login = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         try {
@@ -89,9 +92,24 @@ export class SamlController {
         res.send('Login successful');
     };
 
-    static logout = (req: express.Request, res: express.Response) => {
+    static logout = async (req: express.Request, res: express.Response) => {
         try {
+            const user = res.locals.user as User;
+
             this.logoutProcess(req, res);
+
+            await this.auditHelper.create({
+                userId: user.id,
+                organizationId: user.organizationId,
+                action: AuditLogEnum.USER_LOGOUT,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: user.email,
+                    },
+                },
+            });
         } catch (error) {
             console.error('Logout error:', error);
             res.status(500).send('Error during logout');
@@ -163,9 +181,7 @@ export class SamlController {
 
     static createConfiguration = async (req: express.Request, res: express.Response) => {
         try {
-            console.log('Creating SAML config...');
-            const token = AuthService.decodeToken(req.headers.authorization?.split(' ')[1]);
-            const user = await this.userRepository.getOneWhere({id: token.userId});
+            const user = res.locals.user as User;
 
             const validatedData = samlConfigSchema.parse(req.body);
             const samlConfig: SamlConfig = await this.samlConfigRepository.create({
@@ -186,9 +202,7 @@ export class SamlController {
 
     static getConfiguration = async (req: express.Request, res: express.Response) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const user = await this.userRepository.getOneWhere({id: token.userId});
-
+            const user = res.locals.user as User;
             const configuration = await this.samlConfigRepository.findOneWhere({organizationId: user.organizationId});
 
             if (configuration) {
@@ -245,8 +259,7 @@ export class SamlController {
         }
 
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const user = await this.userRepository.getOne(token.userId);
+            const user = res.locals.user as User;
 
             if (user.twoFactorSecret && user.twoFactorVerified) {
                 res.status(400).json({error: 'You must verify your 2FA before deleting the configuration.'});
@@ -263,8 +276,7 @@ export class SamlController {
 
     static delete2FAConfiguration = async (req: express.Request, res: express.Response) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const user = await this.userRepository.getOne(token.userId);
+            const user = res.locals.user as User;
 
             if (!user.twoFactorSecret || !user.twoFactorVerified) {
                 res.status(400).json({error: '2FA is not enabled or verified for this account'});

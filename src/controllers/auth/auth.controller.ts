@@ -6,9 +6,13 @@ import moment from 'moment';
 import {loginSchema} from './auth.schema';
 import {prisma} from '../../config/db.config';
 import {UserController} from '../user/user.controller';
+import {AuditLogHelper} from '../audit-log/audit-log.helper';
+import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
+import {LoginType} from '@prisma/client';
 
 export class AuthController {
     static userRepository = new UserRepository(prisma);
+    static auditHelper = new AuditLogHelper();
 
     constructor() {}
 
@@ -17,7 +21,7 @@ export class AuthController {
             const validatedData = loginSchema.parse(req.body);
 
             const user = await this.userRepository.findOneWhere({
-                email: validatedData.email,
+                email: validatedData.email.toLowerCase(),
             });
 
             if (!user) {
@@ -25,7 +29,7 @@ export class AuthController {
                 return;
             }
 
-            if (user.loginType !== 'local' || !user.password) {
+            if (user.loginType !== LoginType.local || !user.password) {
                 res.status(401).json({error: 'Invalid login type'});
                 return;
             }
@@ -65,8 +69,20 @@ export class AuthController {
                     status: 'success',
                     requires2FAVerification: false,
                 });
-                return;
             }
+
+            await this.auditHelper.create({
+                userId: user.id,
+                organizationId: user.organizationId,
+                action: AuditLogEnum.USER_LOGIN,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: user.email,
+                    },
+                },
+            });
         } catch (error) {
             console.error(error);
             res.status(500).json({error: 'Login failed'});
