@@ -21,7 +21,7 @@ export class AuthController {
             const validatedData = loginSchema.parse(req.body);
 
             const user = await this.userRepository.findOneWhere({
-                email: validatedData.email,
+                email: validatedData.email.toLowerCase(),
             });
 
             if (!user) {

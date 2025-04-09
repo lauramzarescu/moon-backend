@@ -148,6 +148,15 @@ export class UserController {
             validatedData.organizationId = requesterUser.organizationId;
             validatedData.password = await bcrypt.hash(validatedData.password as string, 10);
 
+            const isDuplicate = await this.userRepository.findOneWhere({
+                email: validatedData.email.toLowerCase(),
+            });
+
+            if (isDuplicate) {
+                res.status(400).json({error: 'Email already exists'});
+                return;
+            }
+
             const user = await this.userRepository.create(validatedData);
 
             res.status(201).json(user);
