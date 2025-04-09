@@ -98,7 +98,7 @@ export class UserController {
 
             res.json(me);
         } catch (error: any) {
-            res.status(500).json({error: error.message});
+            res.status(500).json({message: error.message});
         }
     };
 
@@ -108,7 +108,7 @@ export class UserController {
 
             res.json(users);
         } catch (error: any) {
-            res.status(500).json({error: error.message});
+            res.status(500).json({message: error.message});
         }
     };
 
@@ -127,7 +127,7 @@ export class UserController {
 
             res.json(paginatedUsers);
         } catch (error: any) {
-            res.status(500).json({error: error.message});
+            res.status(500).json({message: error.message});
         }
     };
 
@@ -136,7 +136,7 @@ export class UserController {
             const user = await this.userRepository.getOne(req.params.id);
             res.json(user);
         } catch (error: any) {
-            res.status(500).json({error: error.message});
+            res.status(500).json({message: error.message});
         }
     };
 
@@ -153,7 +153,7 @@ export class UserController {
             });
 
             if (isDuplicate) {
-                res.status(400).json({error: 'Email already exists'});
+                res.status(400).json({message: 'Email already exists'});
                 return;
             }
 
@@ -176,7 +176,7 @@ export class UserController {
                 },
             });
         } catch (error: any) {
-            res.status(500).json({error: error.message});
+            res.status(500).json({message: error.message});
         }
     };
 
@@ -204,7 +204,7 @@ export class UserController {
                 },
             });
         } catch (error: any) {
-            res.status(500).json({error: error.message});
+            res.status(500).json({message: error.message});
         }
     };
 
@@ -230,7 +230,7 @@ export class UserController {
                 },
             });
         } catch (error: any) {
-            res.status(500).json({error: error.message});
+            res.status(500).json({message: error.message});
         }
     };
 
@@ -239,12 +239,12 @@ export class UserController {
             const user = res.locals.user as User;
 
             if (!user.password || user.loginType !== LoginType.local) {
-                res.status(400).json({error: 'Password change is only available for local accounts'});
+                res.status(400).json({message: 'Password change is only available for local accounts'});
                 return;
             }
 
             if (user.twoFactorSecret && user.twoFactorVerified) {
-                res.status(400).json({error: 'You must verify your 2FA before changing password.'});
+                res.status(400).json({message: 'You must verify your 2FA before changing password.'});
                 return;
             }
 
@@ -252,7 +252,7 @@ export class UserController {
 
             const isPasswordValid = await bcrypt.compare(validatedData.currentPassword, user.password);
             if (!isPasswordValid) {
-                res.status(400).json({error: 'Current password is incorrect'});
+                res.status(400).json({message: 'Current password is incorrect'});
                 return;
             }
 
@@ -278,7 +278,7 @@ export class UserController {
                 },
             });
         } catch (error: any) {
-            res.status(500).json({error: error.message});
+            res.status(500).json({message: error.message});
         }
     };
 
@@ -287,12 +287,12 @@ export class UserController {
             const user = res.locals.user as User;
 
             if (!user.password || user.loginType !== LoginType.local) {
-                res.status(400).json({error: 'Password change is only available for local accounts'});
+                res.status(400).json({message: 'Password change is only available for local accounts'});
                 return;
             }
 
             if (!user.twoFactorSecret || !user.twoFactorVerified) {
-                res.status(400).json({error: '2FA is not enabled or verified for this account'});
+                res.status(400).json({message: '2FA is not enabled or verified for this account'});
                 return;
             }
 
@@ -300,7 +300,7 @@ export class UserController {
             const isPasswordValid = await bcrypt.compare(validatedData.currentPassword, user.password);
 
             if (!isPasswordValid) {
-                res.status(400).json({error: 'Current password is incorrect'});
+                res.status(400).json({message: 'Current password is incorrect'});
                 return;
             }
 
@@ -311,7 +311,7 @@ export class UserController {
             });
 
             if (!verified) {
-                res.status(400).json({error: 'Invalid 2FA verification code'});
+                res.status(400).json({message: 'Invalid 2FA verification code'});
                 return;
             }
 
@@ -341,7 +341,7 @@ export class UserController {
                 },
             });
         } catch (error: any) {
-            res.status(500).json({error: error.message});
+            res.status(500).json({message: error.message});
         }
     };
 
@@ -354,7 +354,7 @@ export class UserController {
                 verified: user.twoFactorVerified,
             });
         } catch (error: any) {
-            res.status(500).json({error: error.message});
+            res.status(500).json({message: error.message});
         }
     };
 
@@ -397,7 +397,7 @@ export class UserController {
             });
         } catch (error: any) {
             console.log(error);
-            res.status(500).json({error: error.message});
+            res.status(500).json({message: error.message});
         }
     };
 
@@ -406,7 +406,7 @@ export class UserController {
             const user = res.locals.user as User;
 
             if (!user.twoFactorSecret) {
-                res.status(400).json({error: '2FA not set up yet'});
+                res.status(400).json({message: '2FA not set up yet'});
                 return;
             }
 
@@ -419,7 +419,7 @@ export class UserController {
             });
 
             if (!verified) {
-                res.status(400).json({error: 'Invalid verification code'});
+                res.status(400).json({message: 'Invalid verification code'});
                 return;
             }
 
@@ -431,7 +431,7 @@ export class UserController {
 
             res.json({success: true, message: '2FA verification successful'});
         } catch (error: any) {
-            res.status(500).json({error: error.message});
+            res.status(500).json({message: error.message});
         }
     };
 
@@ -439,21 +439,21 @@ export class UserController {
         try {
             const tempToken = req.headers.authorization;
             if (!tempToken) {
-                res.status(400).json({error: 'No temporary token provided'});
+                res.status(400).json({message: 'No temporary token provided'});
                 return;
             }
 
             const decoded = AuthService.decodeToken(tempToken);
 
             if (!decoded.temp) {
-                res.status(400).json({error: 'Invalid token type'});
+                res.status(400).json({message: 'Invalid token type'});
                 return;
             }
 
             const user = await this.userRepository.getOne(decoded.userId);
 
             if (!user.twoFactorSecret || !user.twoFactorVerified) {
-                res.status(400).json({error: '2FA not set up or verified'});
+                res.status(400).json({message: '2FA not set up or verified'});
                 return;
             }
 
@@ -466,7 +466,7 @@ export class UserController {
             });
 
             if (!verified) {
-                res.status(400).json({error: 'Invalid verification code'});
+                res.status(400).json({message: 'Invalid verification code'});
                 return;
             }
             await this.updateVerifiedDevices(decoded.userId, req);
@@ -483,7 +483,7 @@ export class UserController {
                 message: '2FA session verification successful',
             });
         } catch (error: any) {
-            res.status(500).json({error: error.message});
+            res.status(500).json({message: error.message});
         }
     };
 
@@ -492,7 +492,7 @@ export class UserController {
             const user = res.locals.user as User;
 
             if (!user.twoFactorSecret) {
-                res.status(400).json({error: '2FA is not enabled'});
+                res.status(400).json({message: '2FA is not enabled'});
                 return;
             }
 
@@ -505,7 +505,7 @@ export class UserController {
             });
 
             if (!verified) {
-                res.status(400).json({error: 'Invalid verification code'});
+                res.status(400).json({message: 'Invalid verification code'});
                 return;
             }
 
@@ -531,7 +531,7 @@ export class UserController {
                 },
             });
         } catch (error: any) {
-            res.status(500).json({error: error.message});
+            res.status(500).json({message: error.message});
         }
     };
 }
