@@ -1,13 +1,22 @@
 import {ActionType} from '@prisma/client';
-import {ActionDefinition, AddInboundRuleConfig} from './action.schema';
+import {
+    ActionDefinition,
+    AddInboundRuleConfig,
+    RemoveAllInboundRulesConfig,
+    RemoveInboundRuleConfig,
+} from './action.schema';
 import {ec2Client} from '../../config/aws.config';
 import {EC2Service} from '../../services/aws/ec2.service';
+import {ActionRepository} from '../../repositories/action/action.repository';
+import {prisma} from '../../config/db.config';
 
 export class ActionHelper {
     private readonly ec2Service: EC2Service;
+    private readonly actionRepository: ActionRepository;
 
     constructor() {
         this.ec2Service = new EC2Service(ec2Client);
+        this.actionRepository = new ActionRepository(prisma);
     }
 
     /**
@@ -22,16 +31,25 @@ export class ActionHelper {
                 const actionConfig = action.config as AddInboundRuleConfig;
                 actionConfig.ip = ip;
 
-                await this.executeInboundRule(actionConfig, userEmail);
+                await this.executeAddInboundRule(actionConfig, userEmail);
+                break;
+
+            case ActionType.remove_inbound_rule:
+                const removeActionConfig = action.config as RemoveInboundRuleConfig;
+                removeActionConfig.ip = removeActionConfig.ip || ip;
+                await this.executeRemoveInboundRule(removeActionConfig);
+                break;
+
+            case ActionType.remove_all_inbound_rules:
+                const removeConfig = action.config as {securityGroupId: string};
+                await this.executeRemoveAllInboundRules(removeConfig);
                 break;
             default:
                 console.error('Unknown action type');
         }
     }
 
-    public async executeInboundRule(config: AddInboundRuleConfig, userEmail: string) {
-        console.log('Executing inbound rule', config);
-
+    public async executeAddInboundRule(config: AddInboundRuleConfig, userEmail: string) {
         // Check if the port is a single port or a port range
         let fromPort: number;
         let toPort: number;
@@ -71,6 +89,14 @@ export class ActionHelper {
             config.protocol,
             config.descriptionTemplate || userEmail
         );
+    }
+
+    public executeRemoveInboundRule(config: RemoveInboundRuleConfig) {
+        return this.ec2Service.removeInboundRuleForClientIp(config.securityGroupId, config.ip || '-');
+    }
+
+    public executeRemoveAllInboundRules(config: RemoveAllInboundRulesConfig) {
+        return this.ec2Service.removeAllInboundRules(config.securityGroupId);
     }
 
     public static executeSendNotification(config: {channel: string; recipient: string; messageTemplate: string}) {

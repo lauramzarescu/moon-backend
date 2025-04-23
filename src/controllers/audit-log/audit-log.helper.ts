@@ -17,6 +17,7 @@ export class AuditLogHelper {
         [AuditLogEnum.USER_LOGIN]: TriggerType.user_login,
         [AuditLogEnum.USER_LOGOUT]: TriggerType.user_logout,
         [AuditLogEnum.USER_CREATED]: TriggerType.user_created,
+        [AuditLogEnum.SCHEDULED_JOB_STARTED]: TriggerType.scheduled_job,
     };
 
     public async create(data: CreateAuditLog) {

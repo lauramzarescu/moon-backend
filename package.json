@@ -53,6 +53,7 @@
     "passport": "^0.7.0",
     "passport-saml": "^3.2.4",
     "pg": "^8.14.1",
+    "pg-boss": "^10.2.0",
     "qrcode": "^1.5.4",
     "saml-idp": "^1.2.1",
     "serverless-http": "^3.2.0",

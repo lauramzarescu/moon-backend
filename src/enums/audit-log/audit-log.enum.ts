@@ -48,4 +48,7 @@ export enum AuditLogEnum {
     // Notification events
     NOTIFICATION_EMAIL_SENT = 'notification:email:sent',
     NOTIFICATION_SLACK_SENT = 'notification:slack:sent',
+
+    // Scheduled events
+    SCHEDULED_JOB_STARTED = 'scheduled:job:started',
 }
