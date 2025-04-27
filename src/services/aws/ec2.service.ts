@@ -8,6 +8,8 @@ import {
 } from '@aws-sdk/client-ec2';
 import {backoffAndRetry} from '../../utils/backoff.util';
 import {InstanceInterface} from '../../interfaces/aws-entities/instance.interface';
+import {RemoveAllInboundRulesConfig, RemoveInboundRuleConfig} from '../../controllers/action/action.schema';
+import {RulesHelper} from '../../utils/rules-helper';
 
 export class EC2Service {
     private readonly ec2Client: EC2Client;
@@ -70,7 +72,7 @@ export class EC2Service {
                     ToPort: toPort,
                     IpRanges: [
                         {
-                            CidrIp: `${clientIp}/32`,
+                            CidrIp: `${clientIp}`,
                             Description: description || `Allow access from ${clientIp} on port ${fromPort}-${toPort}`,
                         },
                     ],
@@ -92,17 +94,23 @@ export class EC2Service {
     /**
      * Removes a specific inbound rule from a security group for a client IP address.
      * The rule properties (protocol, ports, CIDR) must match exactly.
-     * @param securityGroupId The ID of the security group to modify.
-     * @param clientIp The client's IP address (used to form the CIDR).
+     * @param config
      */
-    public removeInboundRuleForClientIp = async (securityGroupId: string, clientIp: string): Promise<void> => {
+    public removeInboundRuleForClientIp = async (config: RemoveInboundRuleConfig): Promise<void> => {
+        const {securityGroupId, ip: clientIp, protocol} = config;
+        const {fromPort, toPort} = RulesHelper.parsePortRange(config.portRange);
+        const ipCidr = RulesHelper.ensureCidrFormat(config.ip || '-');
+
         const params = {
             GroupId: securityGroupId,
             IpPermissions: [
                 {
+                    IpProtocol: protocol,
+                    FromPort: fromPort,
+                    ToPort: toPort,
                     IpRanges: [
                         {
-                            CidrIp: `${clientIp}/32`,
+                            CidrIp: `${ipCidr}`,
                             // Note: Description is not required for revoke, and if provided, must match exactly.
                         },
                     ],
@@ -131,9 +139,12 @@ export class EC2Service {
     /**
      * Removes all inbound (ingress) rules from a specified security group.
      * It fetches the current rules and then revokes them.
-     * @param securityGroupId The ID of the security group whose inbound rules should be removed.
+     * @param config
      */
-    public removeAllInboundRules = async (securityGroupId: string): Promise<void> => {
+    public removeAllInboundRules = async (config: RemoveAllInboundRulesConfig): Promise<void> => {
+        const {securityGroupId} = config;
+
+        console.log(`Removing all inbound rules from security group ${securityGroupId}`);
         try {
             // 1. Describe the security group to get its current inbound rules
             const describeParams = {GroupIds: [securityGroupId]};

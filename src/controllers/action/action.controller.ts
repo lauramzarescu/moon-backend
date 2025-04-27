@@ -79,7 +79,7 @@ export class ActionsController {
                 actionType: validatedData.actionType,
                 triggerType: validatedData.triggerType,
                 config: validatedData.config || {},
-                schedulerConfig: validatedData.schedulerConfig || {},
+                schedulerConfig: validatedData.schedulerConfig || null,
                 enabled: validatedData.enabled,
                 organizationId: user.organizationId,
             })) as unknown as ActionDefinition;
@@ -165,7 +165,7 @@ export class ActionsController {
                 actionType: validatedData.actionType,
                 triggerType: validatedData.triggerType,
                 config: validatedData.config !== undefined ? validatedData.config || {} : undefined,
-                schedulerConfig: validatedData.schedulerConfig || {},
+                schedulerConfig: validatedData.schedulerConfig || null,
                 enabled: validatedData.enabled,
             })) as unknown as ActionDefinition;
 
@@ -332,7 +332,8 @@ export class ActionsController {
                 },
             });
 
-            res.status(204).send();
+            res.status(200).json({message: 'Action deleted successfully'});
+            return;
         } catch (error: any) {
             console.error(`Error deleting action ${id}:`, error);
             res.status(500).json({

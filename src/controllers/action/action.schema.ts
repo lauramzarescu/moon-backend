@@ -18,6 +18,8 @@ export type AddInboundRuleConfig = z.infer<typeof addInboundRuleConfigSchema>;
 
 export const removeInboundRuleConfigSchema = z.object({
     securityGroupId: z.string().min(1, 'Security Group ID is required'),
+    protocol: z.string().min(1, 'Protocol is required'),
+    portRange: z.string().min(1, 'Port/Range is required'),
     ip: z.string().optional(),
 });
 export type RemoveInboundRuleConfig = z.infer<typeof removeInboundRuleConfigSchema>;
@@ -42,16 +44,7 @@ export const sendEmailNotificationConfigSchema = z.object({
 export type SendEmailNotificationConfig = z.infer<typeof sendEmailNotificationConfigSchema>;
 
 export const scheduledJobConfigSchema = z.object({
-    startDate: z.string().refine(val => !isNaN(Date.parse(val)), {
-        message: 'Start date must be a valid date string',
-    }),
-    recurrence: z.enum(['once', 'hourly', 'daily', 'weekly', 'monthly']),
-    endDate: z
-        .string()
-        .refine(val => !isNaN(Date.parse(val)), {
-            message: 'End date must be a valid date string',
-        })
-        .optional(),
+    customCronExpression: z.string().min(1, 'Cron expression is required'),
 });
 export type ScheduledJobConfig = z.infer<typeof scheduledJobConfigSchema>;
 
@@ -61,7 +54,7 @@ const baseActionDefinitionSchema = z.object({
     actionType: actionTypeSchema,
     triggerType: triggerTypeSchema,
     config: z.record(z.string(), z.unknown()),
-    schedulerConfig: scheduledJobConfigSchema.optional(),
+    schedulerConfig: scheduledJobConfigSchema.optional().nullable(),
     enabled: z.boolean(),
 });
 export type ActionDefinition = z.infer<typeof baseActionDefinitionSchema>;
@@ -99,11 +92,11 @@ export const createActionInputSchema = createActionSchema
             if (data.triggerType === TriggerTypeEnum.scheduled_job) {
                 return scheduledJobConfigSchema.safeParse(data.schedulerConfig).success;
             }
-            return false;
+            return true;
         },
         {
-            message: 'Configuration object does not match the selected action type.',
-            path: ['config'],
+            message: 'Scheduler configuration is required for scheduled jobs.',
+            path: ['schedulerConfig'],
         }
     );
 export type CreateActionDto = z.infer<typeof createActionInputSchema>;
@@ -143,11 +136,11 @@ export const updateActionInputSchema = updateActionBaseSchema
             if (data.triggerType === TriggerTypeEnum.scheduled_job) {
                 return scheduledJobConfigSchema.safeParse(data.schedulerConfig).success;
             }
-            return false;
+            return true;
         },
         {
-            message: 'Configuration object does not match the selected action type.',
-            path: ['config'],
+            message: 'Scheduler configuration is required for scheduled jobs.',
+            path: ['schedulerConfig'],
         }
     );
 export type UpdateActionDto = z.infer<typeof updateActionInputSchema>;
