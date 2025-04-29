@@ -73,7 +73,7 @@ export class EC2Service {
                     IpRanges: [
                         {
                             CidrIp: `${clientIp}`,
-                            Description: description || `Allow access from ${clientIp} on port ${fromPort}-${toPort}`,
+                            Description: description,
                         },
                     ],
                 },
@@ -122,7 +122,6 @@ export class EC2Service {
         };
 
         try {
-            // Use RevokeSecurityGroupIngressCommand
             await backoffAndRetry(() => this.ec2Client.send(new RevokeSecurityGroupIngressCommand(params)));
             console.log(`Successfully revoked inbound rule for ${clientIp} from SG ${securityGroupId}`);
         } catch (error: any) {
@@ -158,15 +157,33 @@ export class EC2Service {
                 return;
             }
 
-            const currentPermissions = describeResponse.SecurityGroups[0].IpPermissions;
+            let currentPermissions = describeResponse.SecurityGroups[0].IpPermissions || [];
 
             // Check if there are any rules to remove
-            if (!currentPermissions || currentPermissions.length === 0) {
+            if (currentPermissions.length === 0) {
                 console.log(`No inbound rules found to remove for SG ${securityGroupId}.`);
                 return;
             }
 
-            // 2. Prepare parameters for revocation using the fetched permissions
+            // Apply filters based on config
+            if (config.protocol) {
+                currentPermissions = currentPermissions.filter(permission => permission.IpProtocol === config.protocol);
+            }
+
+            if (config.portRange) {
+                const {fromPort, toPort} = RulesHelper.parsePortRange(config.portRange);
+                currentPermissions = currentPermissions.filter(
+                    permission => permission.FromPort === fromPort && permission.ToPort === toPort
+                );
+            }
+
+            // Check if there are any rules left after filtering
+            if (currentPermissions.length === 0) {
+                console.log(`No matching inbound rules found to remove for SG ${securityGroupId}.`);
+                return;
+            }
+
+            // 2. Prepare parameters for revocation using the filtered permissions
             const revokeParams = {
                 GroupId: securityGroupId,
                 IpPermissions: currentPermissions,
@@ -174,9 +191,9 @@ export class EC2Service {
 
             // 3. Call RevokeSecurityGroupIngressCommand
             await backoffAndRetry(() => this.ec2Client.send(new RevokeSecurityGroupIngressCommand(revokeParams)));
-            console.log(`Successfully removed all inbound rules from SG ${securityGroupId}.`);
+            console.log(`Successfully removed filtered inbound rules from SG ${securityGroupId}.`);
         } catch (error) {
-            console.error(`Error removing all inbound rules from SG ${securityGroupId}:`, error);
+            console.error(`Error removing inbound rules from SG ${securityGroupId}:`, error);
             throw error;
         }
     };

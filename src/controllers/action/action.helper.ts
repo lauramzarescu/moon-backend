@@ -57,6 +57,9 @@ export class ActionHelper {
         // Ensure IP is in CIDR format
         const ipCidr = RulesHelper.ensureCidrFormat(config.ip || '-');
 
+        // Parse the description template
+        const description = RulesHelper.parseDynamicDescription(config, userEmail);
+
         // Execute the EC2 security group rule addition
         return this.ec2Service.addInboundRuleForClientIp(
             config.securityGroupId,
@@ -64,7 +67,7 @@ export class ActionHelper {
             fromPort,
             toPort,
             config.protocol,
-            config.descriptionTemplate || userEmail
+            description
         );
     }
 

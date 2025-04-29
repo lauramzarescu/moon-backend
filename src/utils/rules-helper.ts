@@ -1,3 +1,5 @@
+import {AddInboundRuleConfig} from '../controllers/action/action.schema';
+
 /**
  * Utility class for handling port-related operations
  */
@@ -64,5 +66,44 @@ export class RulesHelper {
         // Return original if it doesn't match IP patterns
         // This might still cause errors but preserves original behavior
         return ip;
+    }
+
+    /**
+     * Parses a dynamic description string and returns a formatted description.
+     * Allow the following variables: {ip}, {fromPort}, {toPort}, {portRange} {protocol}, {timestamp}, {email}
+     * @param config
+     * @param email
+     */
+    public static parseDynamicDescription(config: AddInboundRuleConfig, email: string): string {
+        const {ip, portRange, protocol} = config;
+        const {fromPort, toPort} = this.parsePortRange(portRange);
+        const timestamp = new Date().toISOString();
+        const emailPlaceholder = '{email}';
+
+        const description = config.descriptionTemplate?.replace(
+            /{ip}|{fromPort}|{toPort}|{portRange}|{protocol}|{timestamp}|{email}/g,
+            (match): string => {
+                switch (match) {
+                    case '{ip}':
+                        return <string>ip;
+                    case '{fromPort}':
+                        return fromPort.toString();
+                    case '{toPort}':
+                        return toPort.toString();
+                    case '{portRange}':
+                        return portRange;
+                    case '{protocol}':
+                        return protocol;
+                    case '{timestamp}':
+                        return timestamp;
+                    case emailPlaceholder:
+                        return email;
+                    default:
+                        return match;
+                }
+            }
+        );
+
+        return description || email;
     }
 }

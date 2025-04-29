@@ -13,7 +13,8 @@ import {UserRepository} from '../../repositories/user/user.repository';
 import {TriggerType, User} from '@prisma/client';
 import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 import {AuditLogHelper} from '../audit-log/audit-log.helper';
-import {JobSchedulerService} from '../../services/scheduler/job-scheduler.service'; // Import the scheduler
+import {JobSchedulerService} from '../../services/scheduler/job-scheduler.service';
+import {parseCronToHumanReadable} from '../../utils/cron-parser.util'; // Import the scheduler
 
 export class ActionsController {
     static actionRepository = new ActionRepository(prisma);
@@ -26,9 +27,17 @@ export class ActionsController {
     static list = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         try {
             const user = res.locals.user as User;
-            const actions = await this.actionRepository.findMany({
+            const actions = (await this.actionRepository.findMany({
                 organizationId: user.organizationId,
-            });
+            })) as ActionDefinition[];
+
+            for (const action of actions) {
+                if (action.triggerType === TriggerType.scheduled_job && action.schedulerConfig?.customCronExpression) {
+                    action.schedulerConfig.readableCronExpression = parseCronToHumanReadable(
+                        action.schedulerConfig?.customCronExpression
+                    );
+                }
+            }
 
             res.json(actions);
         } catch (error: any) {

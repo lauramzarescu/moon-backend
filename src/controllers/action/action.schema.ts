@@ -26,6 +26,8 @@ export type RemoveInboundRuleConfig = z.infer<typeof removeInboundRuleConfigSche
 
 export const removeAllInboundRulesConfigSchema = z.object({
     securityGroupId: z.string().min(1, 'Security Group ID is required'),
+    protocol: z.string().optional(),
+    portRange: z.string().optional(),
 });
 export type RemoveAllInboundRulesConfig = z.infer<typeof removeAllInboundRulesConfigSchema>;
 
@@ -45,6 +47,13 @@ export type SendEmailNotificationConfig = z.infer<typeof sendEmailNotificationCo
 
 export const scheduledJobConfigSchema = z.object({
     customCronExpression: z.string().min(1, 'Cron expression is required'),
+    readableCronExpression: z
+        .object({
+            description: z.string(),
+            nextRun: z.string(),
+            nextRuns: z.array(z.string()),
+        })
+        .optional(),
 });
 export type ScheduledJobConfig = z.infer<typeof scheduledJobConfigSchema>;
 
@@ -144,6 +153,9 @@ export const updateActionInputSchema = updateActionBaseSchema
         }
     );
 export type UpdateActionDto = z.infer<typeof updateActionInputSchema>;
+
+const listActionsSchema = z.object(baseActionDefinitionSchema.shape);
+export type ListActionsDto = z.infer<typeof listActionsSchema>;
 
 export const actionTypeLabels: Record<ActionType, string> = {
     add_inbound_rule: 'Add Inbound Security Group Rule',
