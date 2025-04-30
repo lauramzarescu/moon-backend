@@ -43,11 +43,10 @@ export class AuditLogHelper {
 
         try {
             // Find all enabled actions with matching trigger type
-            const actionsToExecute = (await this.actionRepository.findMany({
-                triggerType,
-                organizationId: data.organizationId,
-                enabled: true,
-            })) as unknown as ActionDefinition[];
+            const actionsToExecute = (await this.actionRepository.getActive(
+                data.organizationId,
+                triggerType
+            )) as unknown as ActionDefinition[];
 
             // Execute each matching action
             for (const action of actionsToExecute) {

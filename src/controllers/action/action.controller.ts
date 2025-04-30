@@ -14,12 +14,14 @@ import {TriggerType, User} from '@prisma/client';
 import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 import {AuditLogHelper} from '../audit-log/audit-log.helper';
 import {JobSchedulerService} from '../../services/scheduler/job-scheduler.service';
-import {parseCronToHumanReadable} from '../../utils/cron-parser.util'; // Import the scheduler
+import {parseCronToHumanReadable} from '../../utils/cron-parser.util';
+import {ActionHelper} from './action.helper';
 
 export class ActionsController {
     static actionRepository = new ActionRepository(prisma);
     static readonly userRepository = new UserRepository(prisma);
     static readonly auditHelper = new AuditLogHelper();
+    static readonly actionHelper = new ActionHelper();
     static readonly jobScheduler = new JobSchedulerService(); // Add the scheduler instance
 
     private constructor() {}
@@ -347,6 +349,28 @@ export class ActionsController {
             console.error(`Error deleting action ${id}:`, error);
             res.status(500).json({
                 message: 'Failed to delete action',
+                error: error.message,
+            });
+        }
+    };
+
+    static refresh = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+        try {
+            const user = res.locals.user as User;
+            const actions = (await this.actionRepository.getActive(
+                user.organizationId,
+                TriggerType.page_refresh
+            )) as ActionDefinition[];
+
+            for (const action of actions) {
+                await this.actionHelper.execute(action, (req as any).ipAddress, user.email);
+            }
+
+            res.status(200).json({message: 'Page refresh actions triggered.'});
+        } catch (error: any) {
+            console.error('Error executing page refresh actions:', error);
+            res.status(500).json({
+                message: 'Failed to execute page refresh actions',
                 error: error.message,
             });
         }

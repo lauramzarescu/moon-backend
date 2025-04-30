@@ -137,4 +137,5 @@ enum TriggerType {
   user_logout
   user_created
   scheduled_job
+  page_refresh
 }

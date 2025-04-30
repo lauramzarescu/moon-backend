@@ -170,4 +170,5 @@ export const triggerTypeLabels: Record<TriggerType, string> = {
     user_logout: 'User Logout',
     user_created: 'User Created',
     scheduled_job: 'Scheduled Job',
+    page_refresh: 'Page Refresh',
 };
