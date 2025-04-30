@@ -1,6 +1,15 @@
-import {AuthorizeSecurityGroupIngressCommand, DescribeInstancesCommand, EC2Client, Tag} from '@aws-sdk/client-ec2';
+import {
+    AuthorizeSecurityGroupIngressCommand,
+    DescribeInstancesCommand,
+    DescribeSecurityGroupsCommand,
+    EC2Client,
+    RevokeSecurityGroupIngressCommand,
+    Tag,
+} from '@aws-sdk/client-ec2';
 import {backoffAndRetry} from '../../utils/backoff.util';
 import {InstanceInterface} from '../../interfaces/aws-entities/instance.interface';
+import {RemoveAllInboundRulesConfig, RemoveInboundRuleConfig} from '../../controllers/action/action.schema';
+import {RulesHelper} from '../../utils/rules-helper';
 
 export class EC2Service {
     private readonly ec2Client: EC2Client;
@@ -63,8 +72,8 @@ export class EC2Service {
                     ToPort: toPort,
                     IpRanges: [
                         {
-                            CidrIp: `${clientIp}/32`,
-                            Description: description || `Allow access from ${clientIp} on port ${fromPort}-${toPort}`,
+                            CidrIp: `${clientIp}`,
+                            Description: description,
                         },
                     ],
                 },
@@ -78,6 +87,113 @@ export class EC2Service {
             );
         } catch (error) {
             console.error(`Error adding inbound rule for ${clientIp}:`, error);
+            throw error;
+        }
+    };
+
+    /**
+     * Removes a specific inbound rule from a security group for a client IP address.
+     * The rule properties (protocol, ports, CIDR) must match exactly.
+     * @param config
+     */
+    public removeInboundRuleForClientIp = async (config: RemoveInboundRuleConfig): Promise<void> => {
+        const {securityGroupId, ip: clientIp, protocol} = config;
+        const {fromPort, toPort} = RulesHelper.parsePortRange(config.portRange);
+        const ipCidr = RulesHelper.ensureCidrFormat(config.ip || '-');
+
+        const params = {
+            GroupId: securityGroupId,
+            IpPermissions: [
+                {
+                    IpProtocol: protocol,
+                    FromPort: fromPort,
+                    ToPort: toPort,
+                    IpRanges: [
+                        {
+                            CidrIp: `${ipCidr}`,
+                            // Note: Description is not required for revoke, and if provided, must match exactly.
+                        },
+                    ],
+                    // UserIdGroupPairs: [],
+                    // Ipv6Ranges: [],
+                    // PrefixListIds: []
+                },
+            ],
+        };
+
+        try {
+            await backoffAndRetry(() => this.ec2Client.send(new RevokeSecurityGroupIngressCommand(params)));
+            console.log(`Successfully revoked inbound rule for ${clientIp} from SG ${securityGroupId}`);
+        } catch (error: any) {
+            // For non-default VPCs, a non-matching rule throws InvalidPermission.NotFound
+            if (error.name === 'InvalidPermission.NotFound') {
+                console.warn(`Rule for ${clientIp} not found in SG ${securityGroupId} or did not match exactly.`);
+            } else {
+                console.error(`Error removing inbound rule for ${clientIp}:`, error);
+                throw error;
+            }
+        }
+    };
+
+    /**
+     * Removes all inbound (ingress) rules from a specified security group.
+     * It fetches the current rules and then revokes them.
+     * @param config
+     */
+    public removeAllInboundRules = async (config: RemoveAllInboundRulesConfig): Promise<void> => {
+        const {securityGroupId} = config;
+
+        console.log(`Removing all inbound rules from security group ${securityGroupId}`);
+        try {
+            // 1. Describe the security group to get its current inbound rules
+            const describeParams = {GroupIds: [securityGroupId]};
+            const describeResponse = await backoffAndRetry(() =>
+                this.ec2Client.send(new DescribeSecurityGroupsCommand(describeParams))
+            );
+
+            // Check if the security group was found
+            if (!describeResponse.SecurityGroups || describeResponse.SecurityGroups.length === 0) {
+                console.log(`Security group ${securityGroupId} not found.`);
+                return;
+            }
+
+            let currentPermissions = describeResponse.SecurityGroups[0].IpPermissions || [];
+
+            // Check if there are any rules to remove
+            if (currentPermissions.length === 0) {
+                console.log(`No inbound rules found to remove for SG ${securityGroupId}.`);
+                return;
+            }
+
+            // Apply filters based on config
+            if (config.protocol) {
+                currentPermissions = currentPermissions.filter(permission => permission.IpProtocol === config.protocol);
+            }
+
+            if (config.portRange) {
+                const {fromPort, toPort} = RulesHelper.parsePortRange(config.portRange);
+                currentPermissions = currentPermissions.filter(
+                    permission => permission.FromPort === fromPort && permission.ToPort === toPort
+                );
+            }
+
+            // Check if there are any rules left after filtering
+            if (currentPermissions.length === 0) {
+                console.log(`No matching inbound rules found to remove for SG ${securityGroupId}.`);
+                return;
+            }
+
+            // 2. Prepare parameters for revocation using the filtered permissions
+            const revokeParams = {
+                GroupId: securityGroupId,
+                IpPermissions: currentPermissions,
+            };
+
+            // 3. Call RevokeSecurityGroupIngressCommand
+            await backoffAndRetry(() => this.ec2Client.send(new RevokeSecurityGroupIngressCommand(revokeParams)));
+            console.log(`Successfully removed filtered inbound rules from SG ${securityGroupId}.`);
+        } catch (error) {
+            console.error(`Error removing inbound rules from SG ${securityGroupId}:`, error);
             throw error;
         }
     };

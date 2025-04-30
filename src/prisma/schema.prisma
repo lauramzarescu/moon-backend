@@ -43,16 +43,17 @@ model User {
 }
 
 model Action {
-  id             String       @id @default(uuid())
-  name           String
-  actionType     ActionType
-  triggerType    TriggerType
-  config         Json
-  enabled        Boolean      @default(true)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  id              String       @id @default(uuid())
+  name            String
+  actionType      ActionType
+  triggerType     TriggerType
+  config          Json
+  schedulerConfig Json?
+  enabled         Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
 }
 
 model SamlConfig {
@@ -125,6 +126,8 @@ enum ServiceType {
 
 enum ActionType {
   add_inbound_rule
+  remove_inbound_rule
+  remove_all_inbound_rules
   send_email_notification
   send_slack_notification
 }
@@ -133,4 +136,6 @@ enum TriggerType {
   user_login
   user_logout
   user_created
+  scheduled_job
+  page_refresh
 }

@@ -8,6 +8,11 @@ const router = express.Router();
 
 router.use(userInfoMiddleware);
 
+/**
+ * Execute on each page refresh. It will execute the actions triggered by page_refresh type.
+ */
+router.get('/refresh', isAuthenticatedGuard([PermissionEnum.ACTIONS_READ]), ActionsController.refresh);
+
 router.get('/', isAuthenticatedGuard([PermissionEnum.ACTIONS_READ]), ActionsController.list);
 router.post('/', isAuthenticatedGuard([PermissionEnum.ACTIONS_CREATE]), ActionsController.create);
 router.get('/:id', isAuthenticatedGuard([PermissionEnum.ACTIONS_READ]), ActionsController.get);
