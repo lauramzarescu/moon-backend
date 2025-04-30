@@ -363,7 +363,11 @@ export class ActionsController {
             )) as ActionDefinition[];
 
             for (const action of actions) {
-                await this.actionHelper.execute(action, (req as any).ipAddress, user.email);
+                try {
+                    await this.actionHelper.execute(action, (req as any).ipAddress, user.email);
+                } catch (error: any) {
+                    console.error(`Error executing action ${action.name}:`, error);
+                }
             }
 
             res.status(200).json({message: 'Page refresh actions triggered.'});
