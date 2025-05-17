@@ -10,12 +10,16 @@ import {backoffAndRetry} from '../../utils/backoff.util';
 import {InstanceInterface} from '../../interfaces/aws-entities/instance.interface';
 import {RemoveAllInboundRulesConfig, RemoveInboundRuleConfig} from '../../controllers/action/action.schema';
 import {RulesHelper} from '../../utils/rules-helper';
+import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
+import {AuditLogHelper} from '../../controllers/audit-log/audit-log.helper';
 
 export class EC2Service {
     private readonly ec2Client: EC2Client;
+    private readonly auditHelper: AuditLogHelper;
 
     constructor(ec2Client: EC2Client) {
         this.ec2Client = ec2Client;
+        this.auditHelper = new AuditLogHelper();
     }
 
     public getInstances = async (): Promise<InstanceInterface[]> => {
@@ -188,6 +192,16 @@ export class EC2Service {
                 GroupId: securityGroupId,
                 IpPermissions: currentPermissions,
             };
+
+            await this.auditHelper.create({
+                userId: 'all',
+                organizationId: '-',
+                action: AuditLogEnum.SECURITY_GROUP_RULE_REMOVE_ALL,
+                details: {
+                    ip: '-',
+                    info: revokeParams,
+                },
+            });
 
             // 3. Call RevokeSecurityGroupIngressCommand
             await backoffAndRetry(() => this.ec2Client.send(new RevokeSecurityGroupIngressCommand(revokeParams)));
