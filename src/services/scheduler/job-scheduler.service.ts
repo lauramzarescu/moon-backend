@@ -49,12 +49,10 @@ export class JobSchedulerService {
     private async ensureQueueExists(queueName: string): Promise<void> {
         try {
             // Explicitly create the queue.
-            // Add queue-specific options as the second argument if needed (e.g., { retryLimit: 3 })
             await this.boss.createQueue(queueName);
             console.log(`Ensured queue exists: ${queueName}`);
         } catch (error: any) {
             // PostgreSQL error code 42P07: duplicate_table (or relation already exists)
-            // Check the specific error code/message from your pg driver if different
             if (error.code === '42P07' || (error.message && error.message.includes('already exists'))) {
                 console.log(`Queue ${queueName} already exists, continuing...`);
             } else {

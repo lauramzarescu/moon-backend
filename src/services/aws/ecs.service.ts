@@ -60,11 +60,15 @@ export class ECSService {
         checkStuckDeployments = true
     ): Promise<ServiceInterface[]> => {
         const servicesResponse = await backoffAndRetry(() =>
-            this.ecsClient.send(new ListServicesCommand({cluster: clusterName}))
+            this.ecsClient.send(new ListServicesCommand({cluster: clusterName, maxResults: 100}))
         );
 
         const serviceNames = servicesResponse.serviceArns?.map((arn: string) => arn.split('/').pop() ?? '') ?? [];
         if (serviceNames.length === 0) return [];
+
+        if (clusterName === 'dev') {
+            console.log(clusterName, servicesResponse.serviceArns);
+        }
 
         const batchSize = 10;
         const serviceBatches = [];
