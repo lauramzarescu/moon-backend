@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc",
     "start": "tsc && node dist/index.js --max-old-space-size=4096",
-    "start-dev": "tsc && nodemon src/index.ts --max-old-space-size=4096",
+    "start-dev": "tsc && nodemon src/index.ts --max-old-space-size=4096 ",
     "lint": "eslint . --ext .ts",
     "fix-style": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json}\"",
     "test": "npm test",
