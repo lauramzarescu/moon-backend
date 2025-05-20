@@ -66,10 +66,6 @@ export class ECSService {
         const serviceNames = servicesResponse.serviceArns?.map((arn: string) => arn.split('/').pop() ?? '') ?? [];
         if (serviceNames.length === 0) return [];
 
-        if (clusterName === 'dev') {
-            console.log(clusterName, servicesResponse.serviceArns);
-        }
-
         const batchSize = 10;
         const serviceBatches = [];
         for (let i = 0; i < serviceNames.length; i += batchSize) {
