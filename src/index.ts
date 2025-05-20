@@ -19,6 +19,7 @@ import {extractIpMiddleware} from './middlewares/extract-ip.middleware';
 import actionRoute from './routes/action.route';
 import {JobSchedulerService} from './services/scheduler/job-scheduler.service';
 import {closePgBossInstance} from './config/pg-boss.config';
+import logger from './config/logger';
 
 dotenv.config();
 
@@ -80,16 +81,16 @@ const port = process.env.APP_PORT || 8001;
 initPrisma(5, 5000)
     .then(() => {
         httpServer.listen(port, () => {
-            console.log(`Server running at http://localhost:${port}`);
+            logger.info(`Server running at http://localhost:${port}`);
 
             // Initialize the job scheduler
             jobScheduler.initialize().then(() => {
-                console.log('Job scheduler initialized');
+                logger.info('Job scheduler initialized');
             });
         });
     })
     .catch(err => {
-        console.error('Failed to initialize database connection:', err);
+        logger.error('Failed to initialize database connection:', err);
         process.exit(1);
     });
 

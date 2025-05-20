@@ -9,6 +9,7 @@ import {UserController} from '../user/user.controller';
 import {AuditLogHelper} from '../audit-log/audit-log.helper';
 import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 import {LoginType} from '@prisma/client';
+import logger from '../../config/logger';
 
 export class AuthController {
     static userRepository = new UserRepository(prisma);
@@ -83,8 +84,8 @@ export class AuthController {
                     },
                 },
             });
-        } catch (error) {
-            console.error(error);
+        } catch (error: any) {
+            logger.error(error);
             res.status(500).json({error: 'Login failed'});
         }
     };

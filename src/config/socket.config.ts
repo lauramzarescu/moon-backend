@@ -8,6 +8,7 @@ import {SOCKET_EVENTS} from '../constants/socket-events';
 import {UserRepository} from '../repositories/user/user.repository';
 import {prisma} from './db.config';
 import {JwtInterface} from '../interfaces/jwt/jwt.interface';
+import logger from './logger';
 
 export const app: Express = express();
 app.set('trust proxy', true);
@@ -52,8 +53,8 @@ interface ClientInfo {
 }
 
 const updateAllClientIntervals = (newIntervalTime: number) => {
-    console.log(`[INTERVAL] Updating all automatic clients to new interval: ${newIntervalTime} seconds`);
-    console.log(`[INTERVAL] Current connected clients: ${connectedClients.size}`);
+    logger.info(`[INTERVAL] Updating all automatic clients to new interval: ${newIntervalTime} seconds`);
+    logger.info(`[INTERVAL] Current connected clients: ${connectedClients.size}`);
 
     connectedClients.forEach((client: ClientInfo, userId) => {
         if (client.timeoutId) {
@@ -72,29 +73,29 @@ const updateAllClientIntervals = (newIntervalTime: number) => {
 };
 
 const increaseInterval = () => {
-    console.log(`[THROTTLE] Rate limit detected. Current interval: ${currentInterval}s`);
+    logger.info(`[THROTTLE] Rate limit detected. Current interval: ${currentInterval}s`);
     successfulRequestsCount = 0;
     const newInterval = Math.min(currentInterval * INTERVAL_INCREASE_FACTOR, MAX_INTERVAL);
 
     if (newInterval !== currentInterval) {
-        console.log(`[THROTTLE] Increasing interval from ${currentInterval}s to ${newInterval}s`);
+        logger.info(`[THROTTLE] Increasing interval from ${currentInterval}s to ${newInterval}s`);
         currentInterval = newInterval;
         updateAllClientIntervals(currentInterval);
     } else {
-        console.log(`[THROTTLE] Already at maximum interval: ${MAX_INTERVAL}s`);
+        logger.info(`[THROTTLE] Already at maximum interval: ${MAX_INTERVAL}s`);
     }
 };
 
 const decreaseInterval = () => {
-    console.log(`[HEALTH] Health check passed. Current interval: ${currentInterval}s`);
+    logger.info(`[HEALTH] Health check passed. Current interval: ${currentInterval}s`);
     const newInterval = Math.max(currentInterval * INTERVAL_DECREASE_FACTOR, MIN_INTERVAL);
 
     if (newInterval !== currentInterval) {
-        console.log(`[HEALTH] Decreasing interval from ${currentInterval}s to ${newInterval}s`);
+        logger.info(`[HEALTH] Decreasing interval from ${currentInterval}s to ${newInterval}s`);
         currentInterval = newInterval;
         updateAllClientIntervals(currentInterval);
     } else {
-        console.log(`[HEALTH] Already at minimum interval: ${MIN_INTERVAL}s`);
+        logger.info(`[HEALTH] Already at minimum interval: ${MIN_INTERVAL}s`);
     }
 };
 
@@ -107,7 +108,7 @@ const executeWithHealthCheck = async (socket: AuthenticatedSocket) => {
             decreaseInterval();
         }
     } catch (error: any) {
-        console.log(`[ERROR] Execute failed: ${error.message}`);
+        logger.info(`[ERROR] Execute failed: ${error.message}`);
         if (error.message?.toLowerCase().includes('exceeded') || error.message?.toLowerCase().includes('throttling')) {
             increaseInterval();
         }
@@ -124,15 +125,15 @@ const scheduleNextExecution = (client: ClientInfo, userId: string) => {
         client.isExecuting = true;
 
         try {
-            console.log(`[EXECUTION] Executing for user ${userId}`);
+            logger.info(`[EXECUTION] Executing for user ${userId}`);
 
             for (const userSocket of client.sockets) {
                 if (userSocket.connected) {
                     await executeWithHealthCheck(userSocket);
                 }
             }
-        } catch (error) {
-            console.error(`[ERROR] Error during execution for user ${userId}:`, error);
+        } catch (error: any) {
+            logger.error(`[ERROR] Error during execution for user ${userId}:`, error);
         } finally {
             client.isExecuting = false;
 
@@ -145,7 +146,7 @@ const scheduleNextExecution = (client: ClientInfo, userId: string) => {
 
 io.use(async (socket: Socket, next) => {
     try {
-        console.log(`[AUTH] New connection attempt from ${socket.id}`);
+        logger.info(`[AUTH] New connection attempt from ${socket.id}`);
         const cookieHeader = socket.handshake.headers.cookie;
 
         if (!cookieHeader) {
@@ -180,19 +181,19 @@ io.use(async (socket: Socket, next) => {
             socket.handshake.address;
 
         next();
-    } catch (error) {
-        console.error(`[AUTH] Authentication failed for ${socket.id}:`, error);
+    } catch (error: any) {
+        logger.error(`[AUTH] Authentication failed for ${socket.id}:`, error);
         next(new Error('Invalid authentication token'));
     }
 });
 
 io.on('connection', async (_socket: Socket) => {
-    console.log(`[CONNECTION] New connection from ${_socket.id}`);
+    logger.info(`[CONNECTION] New connection from ${_socket.id}`);
     const socket = _socket as AuthenticatedSocket;
     const userId = socket.userId;
 
     if (!connectedClients.has(userId)) {
-        console.log(`[CONNECTION] First connection for user ${userId}`);
+        logger.info(`[CONNECTION] First connection for user ${userId}`);
         const clientInfo: ClientInfo = {
             sockets: [socket],
             timeoutId: null,
@@ -201,14 +202,14 @@ io.on('connection', async (_socket: Socket) => {
         };
         connectedClients.set(userId, clientInfo);
     } else {
-        console.log(`[CONNECTION] Additional connection for user ${userId}`);
+        logger.info(`[CONNECTION] Additional connection for user ${userId}`);
         const client = connectedClients.get(userId);
         client.sockets.push(socket);
     }
 
     socket.on(SOCKET_EVENTS.INTERVAL_SET, intervalTime => {
         const client = connectedClients.get(userId);
-        console.log(`[INTERVAL] User ${userId} requested interval change to ${intervalTime}s`);
+        logger.info(`[INTERVAL] User ${userId} requested interval change to ${intervalTime}s`);
 
         if (client) {
             if (client.timeoutId) {
@@ -220,11 +221,11 @@ io.on('connection', async (_socket: Socket) => {
             if (intervalTime === -1) {
                 client.isAutomatic = true;
                 client.intervalTime = currentInterval * 1000;
-                console.log(`[INTERVAL] Setting automatic mode for user ${userId} starting at ${currentInterval}s`);
+                logger.info(`[INTERVAL] Setting automatic mode for user ${userId} starting at ${currentInterval}s`);
             } else {
                 client.isAutomatic = false;
                 client.intervalTime = intervalTime * 1000;
-                console.log(`[INTERVAL] Setting manual mode for user ${userId} at ${intervalTime}s`);
+                logger.info(`[INTERVAL] Setting manual mode for user ${userId} at ${intervalTime}s`);
             }
 
             socket.emit(SOCKET_EVENTS.INTERVAL_UPDATED, client.intervalTime / 1000);
@@ -238,33 +239,33 @@ io.on('connection', async (_socket: Socket) => {
     });
 
     socket.on(SOCKET_EVENTS.MANUAL_REFRESH, async () => {
-        console.log(`[MANUAL] Manual refresh requested by user ${userId}`);
+        logger.info(`[MANUAL] Manual refresh requested by user ${userId}`);
         if (connectedClients.has(userId)) {
             await executeWithHealthCheck(socket);
         }
     });
 
     socket.on(SOCKET_EVENTS.CLUSTERS_UPDATE, async () => {
-        console.log(`[UPDATE] Cluster update requested by user ${userId}`);
+        logger.info(`[UPDATE] Cluster update requested by user ${userId}`);
         if (connectedClients.has(userId)) {
             await executeWithHealthCheck(socket);
         }
     });
 
     socket.on(SOCKET_EVENTS.DISCONNECT, () => {
-        console.log(`[DISCONNECT] Socket ${socket.id} disconnecting (User: ${userId})`);
+        logger.info(`[DISCONNECT] Socket ${socket.id} disconnecting (User: ${userId})`);
         const client = connectedClients.get(userId);
         if (client) {
             client.sockets = client.sockets.filter((s: Socket) => s.id !== socket.id);
 
             if (client.sockets.length === 0) {
-                console.log(`[DISCONNECT] Cleaning up last connection for user ${userId}`);
+                logger.info(`[DISCONNECT] Cleaning up last connection for user ${userId}`);
                 if (client.timeoutId) {
                     clearTimeout(client.timeoutId);
                 }
                 connectedClients.delete(userId);
             } else {
-                console.log(`[DISCONNECT] User ${userId} still has ${client.sockets.length} active connections`);
+                logger.info(`[DISCONNECT] User ${userId} still has ${client.sockets.length} active connections`);
             }
         }
     });

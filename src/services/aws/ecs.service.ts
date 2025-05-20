@@ -13,6 +13,7 @@ import {ClusterInterface} from '../../interfaces/aws-entities/cluster.interface'
 import {ServiceInterface} from '../../interfaces/aws-entities/service.interface';
 import {SchedulerService} from './scheduler.service';
 import {DeploymentMonitorService} from './deployment-monitor.service';
+import logger from '../../config/logger';
 
 export class ECSService {
     private readonly ecsClient: ECSClient;
@@ -131,10 +132,10 @@ export class ECSService {
         const deploymentStatus = await this.checkForStuckDeployment(clusterName, serviceName);
 
         if (deploymentStatus.isStuck) {
-            console.log(`Detected stuck deployment for service ${serviceName} in cluster ${clusterName}`);
+            logger.info(`Detected stuck deployment for service ${serviceName} in cluster ${clusterName}`);
 
             if (autoResolve) {
-                console.log(`Auto-resolving stuck deployment by forcing a new deployment`);
+                logger.info(`Auto-resolving stuck deployment by forcing a new deployment`);
                 await this.restartService(clusterName, serviceName);
                 return {
                     wasStuck: true,
@@ -170,7 +171,7 @@ export class ECSService {
 
         for (const cluster of clusterResponse.clusters ?? []) {
             if (!cluster.clusterName || !cluster.clusterArn) {
-                console.log('Cluster does not exist');
+                logger.info('Cluster does not exist');
                 continue;
             }
 

@@ -1,5 +1,6 @@
 import {PrismaClient} from '@prisma/client';
 import {Pool} from 'pg';
+import logger from './logger';
 
 // Database configuration from environment variables
 interface DbConfig {
@@ -47,19 +48,19 @@ async function connectWithRetry(maxRetries = 5, retryInterval = 5000): Promise<P
     while (retries > 0) {
         try {
             const client = await pool.connect();
-            console.log('Successfully connected to PostgreSQL database');
+            logger.info('Successfully connected to PostgreSQL database');
             client.release();
             return pool;
         } catch (err) {
             retries -= 1;
-            console.error(`Failed to connect to PostgreSQL. Retries left: ${retries}`);
+            logger.error(`Failed to connect to PostgreSQL. Retries left: ${retries}`);
 
             if (err instanceof Error) {
-                console.error(`Error details: ${err.message}`);
+                logger.error(`Error details: ${err.message}`);
             }
 
             if (retries === 0) {
-                console.error('Max retries reached. Could not connect to PostgreSQL');
+                logger.error('Max retries reached. Could not connect to PostgreSQL');
                 throw new Error('Failed to connect to database after multiple attempts');
             }
 
@@ -80,18 +81,18 @@ async function initPrisma(maxRetries = 5, retryInterval = 5000): Promise<PrismaC
         try {
             // Test the connection
             await prisma.$connect();
-            console.log('Successfully connected to database via Prisma');
+            logger.info('Successfully connected to database via Prisma');
             return prisma;
         } catch (err) {
             retries -= 1;
-            console.error(`Failed to connect to database via Prisma. Retries left: ${retries}`);
+            logger.error(`Failed to connect to database via Prisma. Retries left: ${retries}`);
 
             if (err instanceof Error) {
-                console.error(`Error details: ${err.message}`);
+                logger.error(`Error details: ${err.message}`);
             }
 
             if (retries === 0) {
-                console.error('Max retries reached. Could not connect to database via Prisma');
+                logger.error('Max retries reached. Could not connect to database via Prisma');
                 throw new Error('Failed to connect to database via Prisma after multiple attempts');
             }
 
@@ -108,7 +109,7 @@ async function initPrisma(maxRetries = 5, retryInterval = 5000): Promise<PrismaC
 async function disconnect(): Promise<void> {
     await prisma.$disconnect();
     await pool.end();
-    console.log('Disconnected from database');
+    logger.info('Disconnected from database');
 }
 
 export {prisma, pool, dbConfig, connectWithRetry, initPrisma, disconnect};

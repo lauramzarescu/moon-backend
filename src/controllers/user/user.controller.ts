@@ -23,6 +23,7 @@ import moment from 'moment/moment';
 import * as speakeasy from 'speakeasy';
 import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 import {AuditLogHelper} from '../audit-log/audit-log.helper';
+import logger from '../../config/logger';
 
 const TWO_FACTOR_EXPIRATION_DAYS = 7;
 
@@ -396,7 +397,7 @@ export class UserController {
                 },
             });
         } catch (error: any) {
-            console.log(error);
+            logger.info(error);
             res.status(500).json({message: error.message});
         }
     };
