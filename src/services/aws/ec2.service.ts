@@ -10,6 +10,9 @@ import {backoffAndRetry} from '../../utils/backoff.util';
 import {InstanceInterface} from '../../interfaces/aws-entities/instance.interface';
 import {RemoveAllInboundRulesConfig, RemoveInboundRuleConfig} from '../../controllers/action/action.schema';
 import {RulesHelper} from '../../utils/rules-helper';
+import logger from '../../config/logger';
+import {DescribeInstancesCommandOutput} from '@aws-sdk/client-ec2/dist-types/commands';
+import {Instance, Reservation} from '@aws-sdk/client-ec2/dist-types/models';
 
 export class EC2Service {
     private readonly ec2Client: EC2Client;
@@ -24,25 +27,26 @@ export class EC2Service {
         return this.mapInstances(instanceResponse);
     };
 
-    private mapInstances = (instanceResponse: any): InstanceInterface[] => {
+    private mapInstances = (instanceResponse: DescribeInstancesCommandOutput): InstanceInterface[] => {
         const reservations = instanceResponse.Reservations || [];
-        const instances = reservations.flatMap((r: any) => r.Instances || []);
+        const instances = reservations.flatMap((r: Reservation) => r.Instances || []);
 
         return instances
-            .filter((instance: any) => instance.State?.Name === 'running')
-            .map((instance: any) => ({
-                id: instance.InstanceId,
-                name: instance.Tags.filter((tag: Tag) => tag.Key === 'Name')[0]?.Value || 'N/A',
-                type: instance.InstanceType,
+            .filter((instance: Instance) => instance.State?.Name === 'running')
+            .map((instance: Instance) => ({
+                id: instance.InstanceId ?? 'N/A',
+                name: instance.Tags?.filter((tag: Tag) => tag.Key === 'Name')[0]?.Value ?? 'N/A',
+                type: instance.InstanceType ?? 'N/A',
                 state: instance.State?.Name,
-                publicIp: instance.PublicIpAddress,
-                primaryPrivateIp: instance.PrivateIpAddress,
-                privateIpAddresses: instance.NetworkInterfaces?.flatMap(
-                    (networkInterface: any) =>
-                        networkInterface.PrivateIpAddresses?.map(
-                            (privateIpAddress: any) => privateIpAddress.PrivateIpAddress
-                        ) || []
-                ),
+                publicIp: instance.PublicIpAddress ?? 'N/A',
+                primaryPrivateIp: instance.PrivateIpAddress ?? 'N/A',
+                privateIpAddresses:
+                    instance.NetworkInterfaces?.flatMap(
+                        (networkInterface: any) =>
+                            networkInterface.PrivateIpAddresses?.map(
+                                (privateIpAddress: any) => privateIpAddress.PrivateIpAddress
+                            ) || []
+                    ) || [],
             }));
     };
 
@@ -82,11 +86,11 @@ export class EC2Service {
 
         try {
             await backoffAndRetry(() => this.ec2Client.send(new AuthorizeSecurityGroupIngressCommand(params)));
-            console.log(
+            logger.info(
                 `Successfully added inbound rule for ${clientIp} to SG ${securityGroupId} on port ${fromPort}-${toPort}/${protocol}`
             );
-        } catch (error) {
-            console.error(`Error adding inbound rule for ${clientIp}:`, error);
+        } catch (error: any) {
+            logger.error(`Error adding inbound rule for ${clientIp}`, error?.message);
             throw error;
         }
     };
@@ -123,13 +127,13 @@ export class EC2Service {
 
         try {
             await backoffAndRetry(() => this.ec2Client.send(new RevokeSecurityGroupIngressCommand(params)));
-            console.log(`Successfully revoked inbound rule for ${clientIp} from SG ${securityGroupId}`);
+            logger.info(`Successfully revoked inbound rule for ${clientIp} from SG ${securityGroupId}`);
         } catch (error: any) {
             // For non-default VPCs, a non-matching rule throws InvalidPermission.NotFound
             if (error.name === 'InvalidPermission.NotFound') {
-                console.warn(`Rule for ${clientIp} not found in SG ${securityGroupId} or did not match exactly.`);
+                logger.warn(`Rule for ${clientIp} not found in SG ${securityGroupId} or did not match exactly.`);
             } else {
-                console.error(`Error removing inbound rule for ${clientIp}:`, error);
+                logger.error(`Error removing inbound rule for ${clientIp}:`, error.message);
                 throw error;
             }
         }
@@ -143,7 +147,7 @@ export class EC2Service {
     public removeAllInboundRules = async (config: RemoveAllInboundRulesConfig): Promise<void> => {
         const {securityGroupId} = config;
 
-        console.log(`Removing all inbound rules from security group ${securityGroupId}`);
+        logger.info(`Removing all inbound rules from security group ${securityGroupId}`);
         try {
             // 1. Describe the security group to get its current inbound rules
             const describeParams = {GroupIds: [securityGroupId]};
@@ -153,7 +157,7 @@ export class EC2Service {
 
             // Check if the security group was found
             if (!describeResponse.SecurityGroups || describeResponse.SecurityGroups.length === 0) {
-                console.log(`Security group ${securityGroupId} not found.`);
+                logger.info(`Security group ${securityGroupId} not found.`);
                 return;
             }
 
@@ -161,7 +165,7 @@ export class EC2Service {
 
             // Check if there are any rules to remove
             if (currentPermissions.length === 0) {
-                console.log(`No inbound rules found to remove for SG ${securityGroupId}.`);
+                logger.info(`No inbound rules found to remove for SG ${securityGroupId}.`);
                 return;
             }
 
@@ -179,7 +183,7 @@ export class EC2Service {
 
             // Check if there are any rules left after filtering
             if (currentPermissions.length === 0) {
-                console.log(`No matching inbound rules found to remove for SG ${securityGroupId}.`);
+                logger.info(`No matching inbound rules found to remove for SG ${securityGroupId}.`);
                 return;
             }
 
@@ -191,9 +195,9 @@ export class EC2Service {
 
             // 3. Call RevokeSecurityGroupIngressCommand
             await backoffAndRetry(() => this.ec2Client.send(new RevokeSecurityGroupIngressCommand(revokeParams)));
-            console.log(`Successfully removed filtered inbound rules from SG ${securityGroupId}.`);
-        } catch (error) {
-            console.error(`Error removing inbound rules from SG ${securityGroupId}:`, error);
+            logger.info(`Successfully removed filtered inbound rules from SG ${securityGroupId}.`);
+        } catch (error: any) {
+            logger.error(`Error removing inbound rules from SG ${securityGroupId}:`, error.message);
             throw error;
         }
     };

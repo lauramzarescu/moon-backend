@@ -1,5 +1,6 @@
 import {AccessControlRepository} from '../../repositories/access-control/access-control.repository';
 import {prisma} from '../../config/db.config';
+import logger from '../../config/logger';
 
 const repository = new AccessControlRepository(prisma);
 
@@ -10,8 +11,8 @@ export class AccessControlHelper {
             if (accessList.length === 0) return true;
 
             return accessList.some(entry => entry.email === email);
-        } catch (error) {
-            console.log(error);
+        } catch (error: any) {
+            logger.info(error);
             return false;
         }
     };
@@ -20,8 +21,8 @@ export class AccessControlHelper {
         try {
             const accessList = await repository.findMany({organizationId});
             return accessList.length > 0;
-        } catch (error) {
-            console.log(error);
+        } catch (error: any) {
+            logger.info(error);
             return false;
         }
     };

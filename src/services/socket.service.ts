@@ -7,6 +7,7 @@ import {EC2Service} from './aws/ec2.service';
 import {ECSService} from './aws/ecs.service';
 import {AuditLogHelper} from '../controllers/audit-log/audit-log.helper';
 import {AuthenticatedSocket} from '../config/socket.config';
+import logger from '../config/logger';
 
 export class SocketDetailsService {
     private static instance: SocketDetailsService;
@@ -25,11 +26,11 @@ export class SocketDetailsService {
     }
 
     public async generateClusterDetails(socket: AuthenticatedSocket): Promise<void> {
-        console.log('[INFO] Generating cluster details');
+        logger.info('[INFO] Generating cluster details');
         const cachedData = SocketDetailsService.cache.get(AWS_DATA_CACHE_KEY);
 
         if (cachedData) {
-            console.log('[INFO] Returning cached data');
+            logger.info('[INFO] Returning cached data');
             (cachedData as any).updatedOn = new Date().toISOString();
             socket.emit(SOCKET_EVENTS.CLUSTERS_UPDATE, cachedData);
             return;
@@ -48,7 +49,7 @@ export class SocketDetailsService {
             updatedOn: new Date().toISOString(),
         } as AWSResponseInterface;
 
-        console.log('[INFO] Caching cluster details');
+        logger.info('[INFO] Caching cluster details');
 
         SocketDetailsService.cache.set(AWS_DATA_CACHE_KEY, response);
         socket.emit(SOCKET_EVENTS.CLUSTERS_UPDATE, response);

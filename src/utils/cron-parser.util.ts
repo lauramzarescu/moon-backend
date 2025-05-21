@@ -2,6 +2,7 @@ import cronstrue from 'cronstrue';
 import moment from 'moment';
 import awsCronParser from 'aws-cron-parser';
 import cronParser from 'cron-parser';
+import logger from '../config/logger';
 
 const RUNS_LIMIT = 10;
 
@@ -82,8 +83,8 @@ export const parseCronToHumanReadable = (
             nextRun: nextRunFormatted,
             nextRuns,
         };
-    } catch (error) {
-        console.error('Error parsing cron expression:', error);
+    } catch (error: any) {
+        logger.error('Error parsing cron expression:', error);
         return {
             description: 'Invalid cron expression',
             nextRun: 'N/A',

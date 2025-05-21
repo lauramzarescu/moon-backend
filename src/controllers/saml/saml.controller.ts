@@ -12,6 +12,7 @@ import {prisma} from '../../config/db.config';
 import * as speakeasy from 'speakeasy';
 import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 import {AuditLogHelper} from '../audit-log/audit-log.helper';
+import logger from '../../config/logger';
 
 export class SamlController {
     static samlConfigRepository = new SamlConfigRepository(prisma);
@@ -21,7 +22,7 @@ export class SamlController {
     static login = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         try {
             const originUrl = req.headers.referer || process.env.APP_URL;
-            console.log('Origin URL:', originUrl);
+            logger.info('Origin URL:', originUrl);
             const strategyName = await initializeSamlAuth(originUrl as string);
 
             res.header('Access-Control-Allow-Origin', originUrl || 'http://localhost:5173');
@@ -32,8 +33,8 @@ export class SamlController {
                 failureRedirect: '/login',
                 failureFlash: true,
             })(req, res, next);
-        } catch (error) {
-            console.error('Error during SAML login:', error);
+        } catch (error: any) {
+            logger.error('Error during SAML login:', error);
             res.redirect(`${process.env.APP_URL}/login`);
         }
     };
@@ -47,7 +48,7 @@ export class SamlController {
             },
             (err: any, user: any, info: any) => {
                 if (err) {
-                    console.error('SAML Authentication error:', err);
+                    logger.error('SAML Authentication error:', err);
                     res.redirect(`${process.env.APP_URL}/login`);
                     return;
                 }
@@ -59,7 +60,7 @@ export class SamlController {
 
                 req.logIn(user, loginErr => {
                     if (loginErr) {
-                        console.error('Login error:', loginErr);
+                        logger.error('Login error:', loginErr);
                         res.redirect(`${process.env.APP_URL}/login`);
                         return;
                     }
@@ -110,8 +111,8 @@ export class SamlController {
                     },
                 },
             });
-        } catch (error) {
-            console.error('Logout error:', error);
+        } catch (error: any) {
+            logger.error('Logout error:', error);
             res.status(500).send('Error during logout');
         }
     };
@@ -153,8 +154,8 @@ export class SamlController {
                     });
                 }
             );
-        } catch (error) {
-            console.error('Logout error:', error);
+        } catch (error: any) {
+            logger.error('Logout error:', error);
             res.status(500).send('Error during logout');
         }
     };
@@ -192,10 +193,10 @@ export class SamlController {
                 organizationId: user.organizationId,
             });
 
-            console.log('SAML config created:');
+            logger.info('SAML config created:');
             res.status(201).json(samlConfig);
-        } catch (error) {
-            console.error(error);
+        } catch (error: any) {
+            logger.error(error);
             res.status(500).json({error: 'Failed to create SAML configuration'});
         }
     };
@@ -242,10 +243,10 @@ export class SamlController {
                 serviceProviderX509Certificate: validatedData.x509Certificate,
                 serviceProviderPrivateKey: validatedData.privateKey,
             });
-            console.log('SAML config updated');
+            logger.info('SAML config updated');
             res.json(updatedConfig);
-        } catch (error) {
-            console.error(error);
+        } catch (error: any) {
+            logger.error(error);
             res.status(500).json({error: 'Failed to update SAML configuration'});
         }
     };
@@ -268,8 +269,8 @@ export class SamlController {
 
             const deletedConfig = await this.samlConfigRepository.delete(req.params.id);
             res.json({id: deletedConfig.id});
-        } catch (error) {
-            console.error(error);
+        } catch (error: any) {
+            logger.error(error);
             res.status(500).json({error: 'Failed to delete SAML configuration'});
         }
     };
@@ -313,7 +314,7 @@ export class SamlController {
                 id: deletedConfig.id,
             });
         } catch (error: any) {
-            console.error('Error deleting SAML configuration with 2FA:', error);
+            logger.error('Error deleting SAML configuration with 2FA:', error);
             res.status(500).json({error: error.message});
         }
     };

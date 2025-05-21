@@ -27,7 +27,7 @@ export class ClustersController {
             };
 
             res.json(response);
-        } catch (error) {
+        } catch (error: any) {
             const errorResponse = {
                 error: 'Failed to fetch cluster information',
                 details: error,

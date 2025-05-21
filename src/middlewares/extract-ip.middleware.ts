@@ -11,6 +11,6 @@ export const extractIpMiddleware = (req: express.Request, res: express.Response,
               : undefined) ||
         (req.headers['x-real-ip'] as string) ||
         (req.headers['cf-connecting-ip'] as string);
-    
+
     next();
 };

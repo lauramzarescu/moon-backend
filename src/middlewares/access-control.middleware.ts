@@ -5,6 +5,7 @@ import {AccessControlHelper} from '../controllers/access-control/helper';
 import {UserInput} from '../controllers/user/user.schema';
 import {prisma} from '../config/db.config';
 import {SamlConfigRepository} from '../repositories/saml-config/saml-config.repository';
+import logger from '../config/logger';
 
 /** Only for login endpoint with SAML */
 export const checkAccessControlGuard = async (req: Request, res: Response, next: NextFunction) => {
@@ -28,8 +29,8 @@ export const checkAccessControlGuard = async (req: Request, res: Response, next:
         }
 
         next();
-    } catch (error) {
-        console.log(error);
+    } catch (error: any) {
+        logger.info(error);
         res.status(403).json({message: 'Access denied'});
         return;
     }
@@ -68,8 +69,8 @@ export const checkAccessControlPasswordGuard = async (req: Request, res: Respons
         }
 
         next();
-    } catch (error) {
-        console.log(error);
+    } catch (error: any) {
+        logger.info(error);
         res.status(403).json({message: 'Access denied'});
         return;
     }

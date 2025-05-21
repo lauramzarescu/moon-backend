@@ -1,4 +1,5 @@
 import PgBoss from 'pg-boss';
+import logger from './logger';
 
 let pgBossInstance: PgBoss | null = null;
 
@@ -13,6 +14,6 @@ export async function closePgBossInstance(): Promise<void> {
     if (pgBossInstance) {
         await pgBossInstance.stop();
         pgBossInstance = null;
-        console.log('PgBoss stopped successfully');
+        logger.info('PgBoss stopped successfully');
     }
 }

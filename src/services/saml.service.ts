@@ -1,5 +1,6 @@
 import axios from 'axios';
 import xml2js from 'xml2js';
+import logger from '../config/logger';
 
 interface SamlIdpInfoResponse {
     entityID: string;
@@ -103,8 +104,8 @@ export class SamlService {
                 singleLogoutServices: sloServices,
                 certificate,
             };
-        } catch (error) {
-            console.error('Error extracting SAML IdP information:', error);
+        } catch (error: any) {
+            logger.error('Error extracting SAML IdP information:', error);
             throw error;
         }
     };

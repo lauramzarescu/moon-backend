@@ -4,7 +4,7 @@ import {InstanceStateName} from '@aws-sdk/client-ec2/dist-types/models';
 export interface InstanceInterface {
     id: string;
     type: string;
-    state: InstanceStateName;
+    state: InstanceStateName | undefined;
     name: string;
     publicIp: string;
     primaryPrivateIp: string;

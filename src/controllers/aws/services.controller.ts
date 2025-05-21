@@ -46,7 +46,7 @@ export class ServicesController {
                     },
                 },
             });
-        } catch (error) {
+        } catch (error: any) {
             const errorResponse = {
                 error: 'Failed to update service desired count',
                 details: error,
@@ -88,7 +88,7 @@ export class ServicesController {
                     },
                 },
             });
-        } catch (error) {
+        } catch (error: any) {
             const errorResponse = {
                 error: 'Failed to update service container image',
                 details: error,
@@ -122,7 +122,7 @@ export class ServicesController {
                     },
                 },
             });
-        } catch (error) {
+        } catch (error: any) {
             const errorResponse = {
                 error: 'Failed to restart service',
                 details: error,
