@@ -1,6 +1,7 @@
 import {TaskDefinitionInterface} from './task-definition.interface';
 import {DeploymentInterface} from './deployment.interface';
 import {ContainerInterface} from './container.interface';
+import {Task} from '@aws-sdk/client-ecs';
 
 export interface ServiceInterface {
     name: string;
@@ -19,4 +20,5 @@ export interface ServiceInterface {
         currentImages: {containerName: string; image: string}[];
         targetImages: {containerName: string; image: string}[];
     };
+    failedTasks?: Task[];
 }

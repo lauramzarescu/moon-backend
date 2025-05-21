@@ -11,6 +11,8 @@ import {InstanceInterface} from '../../interfaces/aws-entities/instance.interfac
 import {RemoveAllInboundRulesConfig, RemoveInboundRuleConfig} from '../../controllers/action/action.schema';
 import {RulesHelper} from '../../utils/rules-helper';
 import logger from '../../config/logger';
+import {DescribeInstancesCommandOutput} from '@aws-sdk/client-ec2/dist-types/commands';
+import {Instance, Reservation} from '@aws-sdk/client-ec2/dist-types/models';
 
 export class EC2Service {
     private readonly ec2Client: EC2Client;
@@ -25,25 +27,26 @@ export class EC2Service {
         return this.mapInstances(instanceResponse);
     };
 
-    private mapInstances = (instanceResponse: any): InstanceInterface[] => {
+    private mapInstances = (instanceResponse: DescribeInstancesCommandOutput): InstanceInterface[] => {
         const reservations = instanceResponse.Reservations || [];
-        const instances = reservations.flatMap((r: any) => r.Instances || []);
+        const instances = reservations.flatMap((r: Reservation) => r.Instances || []);
 
         return instances
-            .filter((instance: any) => instance.State?.Name === 'running')
-            .map((instance: any) => ({
-                id: instance.InstanceId,
-                name: instance.Tags.filter((tag: Tag) => tag.Key === 'Name')[0]?.Value || 'N/A',
-                type: instance.InstanceType,
+            .filter((instance: Instance) => instance.State?.Name === 'running')
+            .map((instance: Instance) => ({
+                id: instance.InstanceId ?? 'N/A',
+                name: instance.Tags?.filter((tag: Tag) => tag.Key === 'Name')[0]?.Value ?? 'N/A',
+                type: instance.InstanceType ?? 'N/A',
                 state: instance.State?.Name,
-                publicIp: instance.PublicIpAddress,
-                primaryPrivateIp: instance.PrivateIpAddress,
-                privateIpAddresses: instance.NetworkInterfaces?.flatMap(
-                    (networkInterface: any) =>
-                        networkInterface.PrivateIpAddresses?.map(
-                            (privateIpAddress: any) => privateIpAddress.PrivateIpAddress
-                        ) || []
-                ),
+                publicIp: instance.PublicIpAddress ?? 'N/A',
+                primaryPrivateIp: instance.PrivateIpAddress ?? 'N/A',
+                privateIpAddresses:
+                    instance.NetworkInterfaces?.flatMap(
+                        (networkInterface: any) =>
+                            networkInterface.PrivateIpAddresses?.map(
+                                (privateIpAddress: any) => privateIpAddress.PrivateIpAddress
+                            ) || []
+                    ) || [],
             }));
     };
 

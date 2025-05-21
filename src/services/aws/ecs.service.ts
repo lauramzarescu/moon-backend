@@ -2,9 +2,12 @@ import {
     DescribeClustersCommand,
     DescribeServicesCommand,
     DescribeTaskDefinitionCommand,
+    DescribeTaskDefinitionCommandOutput,
+    DescribeTasksCommand,
     ECSClient,
     ListClustersCommand,
     ListServicesCommand,
+    ListTasksCommand,
     RegisterTaskDefinitionCommand,
     UpdateServiceCommand,
 } from '@aws-sdk/client-ecs';
@@ -14,6 +17,9 @@ import {ServiceInterface} from '../../interfaces/aws-entities/service.interface'
 import {SchedulerService} from './scheduler.service';
 import {DeploymentMonitorService} from './deployment-monitor.service';
 import logger from '../../config/logger';
+import {Cluster, Service} from '@aws-sdk/client-ecs/dist-types/models';
+import {Deployment} from '@aws-sdk/client-ecs/dist-types/models/models_0';
+import {ScheduledTaskInterface} from '../../interfaces/aws-entities/scheduled-task.interface';
 
 export class ECSService {
     private readonly ecsClient: ECSClient;
@@ -88,6 +94,7 @@ export class ECSService {
 
             for (const service of serviceDetails.services ?? []) {
                 const taskDefinitionArn = service?.taskDefinition;
+
                 if (!taskDefinitionArn) {
                     throw new Error('Task definition not found');
                 }
@@ -101,6 +108,30 @@ export class ECSService {
                 );
 
                 const serviceData = this.mapServiceDetails(service, taskResponse, clusterName);
+
+                // Get failed tasks
+                const failedTasksListResponse = await backoffAndRetry(() =>
+                    this.ecsClient.send(
+                        new ListTasksCommand({
+                            cluster: clusterName,
+                            serviceName: service.serviceName,
+                            desiredStatus: 'STOPPED',
+                        })
+                    )
+                );
+
+                if (failedTasksListResponse.taskArns?.length) {
+                    const failedTasksResponse = await backoffAndRetry(() =>
+                        this.ecsClient.send(
+                            new DescribeTasksCommand({
+                                cluster: clusterName,
+                                tasks: failedTasksListResponse.taskArns,
+                            })
+                        )
+                    );
+
+                    serviceData.failedTasks = failedTasksResponse.tasks;
+                }
 
                 if (checkStuckDeployments && service.deployments && service.deployments.length > 1) {
                     const deploymentStatus = await this.checkForStuckDeployment(clusterName, service.serviceName || '');
@@ -330,7 +361,11 @@ export class ECSService {
         );
     };
 
-    private mapServiceDetails = (service: any, taskResponse: any, clusterName: string): ServiceInterface => {
+    private mapServiceDetails = (
+        service: Service,
+        taskResponse: DescribeTaskDefinitionCommandOutput,
+        clusterName: string
+    ): ServiceInterface => {
         return {
             name: service.serviceName ?? 'N/A',
             clusterName: clusterName,
@@ -349,12 +384,12 @@ export class ECSService {
                 memory: taskResponse.taskDefinition?.memory ?? 'N/A',
             },
             containers: this.mapContainerDefinitions(taskResponse),
-            deployments: this.mapDeployments(service.deployments),
+            deployments: this.mapDeployments(service.deployments ?? []),
             deploymentStatus: undefined,
         };
     };
 
-    private mapContainerDefinitions = (taskResponse: any) => {
+    private mapContainerDefinitions = (taskResponse: DescribeTaskDefinitionCommandOutput) => {
         return (
             taskResponse.taskDefinition?.containerDefinitions?.map((container: any) => ({
                 name: container.name ?? '',
@@ -378,7 +413,7 @@ export class ECSService {
         );
     };
 
-    private mapDeployments = (deployments: any[]) => {
+    private mapDeployments = (deployments: Deployment[]) => {
         return (
             deployments?.map((deployment: any) => ({
                 status: deployment.status ?? '',
@@ -394,7 +429,11 @@ export class ECSService {
         );
     };
 
-    private mapClusterDetails = (cluster: any, services: ServiceInterface[], scheduledTasks: any): ClusterInterface => {
+    private mapClusterDetails = (
+        cluster: Cluster,
+        services: ServiceInterface[],
+        scheduledTasks: ScheduledTaskInterface[]
+    ): ClusterInterface => {
         return {
             name: cluster.clusterName ?? 'N/A',
             arn: cluster.clusterArn ?? 'N/A',
