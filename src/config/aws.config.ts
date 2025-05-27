@@ -11,7 +11,7 @@ try {
         timeout: 1000,
         maxRetries: 0,
     });
-} catch (error) {
+} catch (error: any) {
     // Fallback to environment variables
     credentials = {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,

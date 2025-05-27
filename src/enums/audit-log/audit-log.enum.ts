@@ -44,6 +44,8 @@ export enum AuditLogEnum {
 
     // Security events
     SECURITY_GROUP_RULE_ADDED = 'security:group:rule:added',
+    SECURITY_GROUP_RULE_REMOVED = 'security:group:rule:removed',
+    SECURITY_GROUP_RULE_REMOVE_ALL = 'security:group:rules:remove',
 
     // Notification events
     NOTIFICATION_EMAIL_SENT = 'notification:email:sent',

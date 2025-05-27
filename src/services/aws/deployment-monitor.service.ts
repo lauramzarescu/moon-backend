@@ -6,6 +6,7 @@ import {
     ListTasksCommand,
 } from '@aws-sdk/client-ecs';
 import {backoffAndRetry} from '../../utils/backoff.util';
+import logger from '../../config/logger';
 
 export class DeploymentMonitorService {
     private readonly ecsClient: ECSClient;
@@ -96,8 +97,8 @@ export class DeploymentMonitorService {
                     targetImages,
                 },
             };
-        } catch (error) {
-            console.error('Error checking deployment status:', error);
+        } catch (error: any) {
+            logger.error('Error checking deployment status:', error);
             throw error;
         }
     }
@@ -132,8 +133,8 @@ export class DeploymentMonitorService {
                 containerName: container.name || 'unknown',
                 image: container.image || 'unknown',
             }));
-        } catch (error) {
-            console.error(`Error getting container images for task definition ${taskDefinitionArn}:`, error);
+        } catch (error: any) {
+            logger.error(`Error getting container images for task definition ${taskDefinitionArn}:`, error);
             return [];
         }
     }
@@ -164,8 +165,8 @@ export class DeploymentMonitorService {
             );
 
             return taskDetails.tasks || [];
-        } catch (error) {
-            console.error('Error getting tasks info:', error);
+        } catch (error: any) {
+            logger.error('Error getting tasks info:', error);
             throw error;
         }
     }

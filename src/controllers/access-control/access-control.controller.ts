@@ -6,6 +6,7 @@ import {prisma} from '../../config/db.config';
 import {User} from '@prisma/client';
 import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 import {AuditLogHelper} from '../audit-log/audit-log.helper';
+import logger from '../../config/logger';
 
 export class AccessControlController {
     protected repository = new AccessControlRepository(prisma);
@@ -40,8 +41,8 @@ export class AccessControlController {
                     },
                 },
             });
-        } catch (error) {
-            console.log(error);
+        } catch (error: any) {
+            logger.error(error);
             res.status(500).json({message: 'Internal server error'});
         }
     };
@@ -72,8 +73,8 @@ export class AccessControlController {
                     },
                 },
             });
-        } catch (error) {
-            console.log(error);
+        } catch (error: any) {
+            logger.info(error);
             res.status(500).json({message: 'Internal server error'});
         }
     };
@@ -100,8 +101,8 @@ export class AccessControlController {
                     },
                 },
             });
-        } catch (error) {
-            console.log(error);
+        } catch (error: any) {
+            logger.info(error);
             res.status(500).json({message: 'Internal server error'});
         }
     };
@@ -112,8 +113,8 @@ export class AccessControlController {
             const result = await this.repository.findMany({organizationId: user.organizationId});
 
             res.status(200).json(result);
-        } catch (error) {
-            console.log(error);
+        } catch (error: any) {
+            logger.info(error);
             res.status(500).json({message: 'Internal server error'});
         }
     };

@@ -1,14 +1,15 @@
 import express from 'express';
 import {PermissionEnum} from '../enums/rbac/permission.enum';
 import {AuthService} from '../services/auth.service';
+import logger from '../config/logger';
 
 export const isAuthenticated = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.log('checking authentication');
+    logger.info('checking authentication');
     if (req.isAuthenticated()) {
-        console.log('user is authenticated');
+        logger.info('user is authenticated');
         return next();
     }
-    console.log('user is not authenticated');
+    logger.info('user is not authenticated');
     res.redirect('/auth/saml/login');
 };
 
@@ -22,7 +23,7 @@ export const isAuthenticatedGuard = (permissions: PermissionEnum[] = []) => {
                 const decoded = AuthService.decodeToken(token);
 
                 if (!decoded) {
-                    console.log('invalid token');
+                    logger.info('invalid token');
                     res.status(401).json({message: 'Invalid token'});
                     return;
                 }
@@ -30,15 +31,15 @@ export const isAuthenticatedGuard = (permissions: PermissionEnum[] = []) => {
                 const validPermissions = AuthService.tokenHasPermissions(decoded, permissions);
 
                 if (!validPermissions) {
-                    console.log('invalid permissions');
+                    logger.info('invalid permissions');
                     res.status(403).json({message: 'Invalid permissions'});
                     return;
                 }
 
                 next();
                 return;
-            } catch (error) {
-                console.log('invalid token');
+            } catch (error: any) {
+                logger.info('invalid token');
                 res.status(401).json({message: 'Invalid token'});
                 return;
             }

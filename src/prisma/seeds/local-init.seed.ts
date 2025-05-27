@@ -3,6 +3,7 @@ import * as bcrypt from 'bcrypt';
 import {UserRepository} from '../../repositories/user/user.repository';
 import {OrganizationRepository} from '../../repositories/organization/organization.repository';
 import {prisma} from '../../config/db.config';
+import logger from '../../config/logger';
 
 async function main() {
     // Check if any users exist in the database
@@ -10,7 +11,7 @@ async function main() {
 
     // Only proceed with seeding if no users exist
     if (userCount === 0) {
-        console.log('No users found. Creating initial seed data...');
+        logger.info('No users found. Creating initial seed data...');
 
         if (!process.env.ROOT_PASSWORD) {
             throw new Error('ROOT_PASSWORD env variable is required');
@@ -35,9 +36,9 @@ async function main() {
             organizationId: organization.id,
         });
 
-        console.log('Initial seed data created successfully.');
+        logger.info('Initial seed data created successfully.');
     } else {
-        console.log('Users already exist in the database. Skipping initial seed.');
+        logger.info('Users already exist in the database. Skipping initial seed.');
     }
 }
 
@@ -46,7 +47,7 @@ main()
         await prisma.$disconnect();
     })
     .catch(async e => {
-        console.error(e);
+        logger.error(e);
         await prisma.$disconnect();
         process.exit(1);
     });

@@ -1,5 +1,6 @@
 import {ServicesConfig} from '@prisma/client';
 import {fromInstanceMetadata} from '@aws-sdk/credential-providers';
+import logger from '../../config/logger';
 
 export interface AWSConfig {
     accessKeyId: string;
@@ -56,8 +57,8 @@ export class ServicesConfigHelper {
                     canEdit: false,
                 };
             }
-        } catch (error) {
-            console.log('Not running on EC2 or unable to access instance metadata:', error);
+        } catch (error: any) {
+            logger.info('Not running on EC2 or unable to access instance metadata:', error);
         }
 
         return null;

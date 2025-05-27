@@ -10,6 +10,7 @@ import {EC2Service} from '../../services/aws/ec2.service';
 import {ActionRepository} from '../../repositories/action/action.repository';
 import {prisma} from '../../config/db.config';
 import {RulesHelper} from '../../utils/rules-helper';
+import logger from '../../config/logger';
 
 export class ActionHelper {
     private readonly ec2Service: EC2Service;
@@ -46,7 +47,7 @@ export class ActionHelper {
                 await this.executeRemoveAllInboundRules(removeConfig);
                 break;
             default:
-                console.error('Unknown action type');
+                logger.error('Unknown action type');
         }
     }
 
@@ -80,7 +81,7 @@ export class ActionHelper {
     }
 
     public static executeSendNotification(config: {channel: string; recipient: string; messageTemplate: string}) {
-        console.log('Sending notification', config);
+        logger.info('Sending notification', config);
         // Implement notification logic here
         return Promise.resolve(`Notification sent to ${config.recipient}`);
     }

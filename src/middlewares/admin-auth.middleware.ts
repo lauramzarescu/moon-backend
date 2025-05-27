@@ -24,7 +24,7 @@ export const requireOrganizationAdminGuard = async (req: Request, res: Response,
         }
 
         next();
-    } catch (error) {
+    } catch (error: any) {
         res.status(403).json({message: 'Admin access required'});
         return;
     }

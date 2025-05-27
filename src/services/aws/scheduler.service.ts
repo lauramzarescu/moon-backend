@@ -1,14 +1,9 @@
-import {
-    DescribeRuleCommand,
-    EventBridgeClient,
-    ListRulesCommand,
-    ListRuleNamesByTargetCommand,
-} from '@aws-sdk/client-eventbridge';
+import {DescribeRuleCommand, EventBridgeClient, ListRuleNamesByTargetCommand} from '@aws-sdk/client-eventbridge';
 import {ScheduledTaskInterface} from '../../interfaces/aws-entities/scheduled-task.interface';
 import {parseCronToHumanReadable} from '../../utils/cron-parser.util';
 import {DescribeRuleCommandOutput} from '@aws-sdk/client-eventbridge/dist-types/commands/DescribeRuleCommand';
 import {backoffAndRetry} from '../../utils/backoff.util';
-import {UpdateServiceCommand} from '@aws-sdk/client-ecs';
+import logger from '../../config/logger';
 
 export class SchedulerService {
     private readonly eventBridge: EventBridgeClient;
@@ -17,7 +12,10 @@ export class SchedulerService {
         this.eventBridge = new EventBridgeClient({region: process.env.AWS_REGION});
     }
 
-    public getECSScheduledTasks = async (clusterArn: string, clusterName: string): Promise<any[]> => {
+    public getECSScheduledTasks = async (
+        clusterArn: string,
+        clusterName: string
+    ): Promise<ScheduledTaskInterface[]> => {
         try {
             const detailedRules: DescribeRuleCommandOutput[] = [];
 
@@ -30,8 +28,8 @@ export class SchedulerService {
             }
 
             return this.mapScheduledTasks(detailedRules, clusterName);
-        } catch (error) {
-            console.error('Error getting scheduled tasks:', error);
+        } catch (error: any) {
+            logger.error('Error getting scheduled tasks:', error);
             throw error;
         }
     };
@@ -47,7 +45,7 @@ export class SchedulerService {
         );
     };
 
-    private mapScheduledTasks = (rules: any[], cluster: string): ScheduledTaskInterface[] => {
+    private mapScheduledTasks = (rules: DescribeRuleCommandOutput[], cluster: string): ScheduledTaskInterface[] => {
         return rules.map(rule => {
             const readableCron = parseCronToHumanReadable(rule.ScheduleExpression || '');
 

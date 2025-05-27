@@ -7,6 +7,7 @@ import {ServicesConfigHelper} from './helper';
 import {servicesConfigSchema} from './services-config.schema';
 import {ServicesConfigResponseInterface} from '../../interfaces/responses/services-config-response.interface';
 import {prisma} from '../../config/db.config';
+import logger from '../../config/logger';
 
 export class ServicesConfigController {
     static servicesConfigRepository = new ServicesConfigRepository(prisma);
@@ -25,7 +26,7 @@ export class ServicesConfigController {
 
             res.json({aws: parsedAwsServiceConfig} as ServicesConfigResponseInterface);
         } catch (error: any) {
-            console.log(error);
+            logger.info(error);
             res.status(500).json({error: error.message});
         }
     };
