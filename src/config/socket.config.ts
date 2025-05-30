@@ -116,6 +116,9 @@ const executeWithHealthCheck = async (socket: AuthenticatedSocket, useProgressiv
         }
     } catch (error: any) {
         logger.info(`[ERROR] Execute failed: ${error.message}`);
+
+        successfulRequestsCount = 0;
+
         if (error.message?.toLowerCase().includes('exceeded') || error.message?.toLowerCase().includes('throttling')) {
             increaseInterval();
         }
