@@ -36,8 +36,23 @@ export class SocketDetailsService {
             return;
         }
 
+        const startTime = Date.now();
+
+        const instancesStartTime = Date.now();
         const instances = await this.ec2Service.getInstances();
+        const instancesEndTime = Date.now();
+        const instancesExecutionTime = instancesEndTime - instancesStartTime;
+
+        const clusterDetailsStartTime = Date.now();
         const clusterDetails = await this.ecsService.getClusterDetails(instances);
+        const clusterDetailsEndTime = Date.now();
+        const clusterDetailsExecutionTime = clusterDetailsEndTime - clusterDetailsStartTime;
+
+        const totalExecutionTime = Date.now() - startTime;
+
+        logger.info(`[PERFORMANCE] EC2 getInstances execution time: ${instancesExecutionTime}ms`);
+        logger.info(`[PERFORMANCE] ECS getClusterDetails execution time: ${clusterDetailsExecutionTime}ms`);
+        logger.info(`[PERFORMANCE] Total AWS operations execution time: ${totalExecutionTime}ms`);
 
         const response = {
             clusters: {

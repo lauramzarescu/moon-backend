@@ -32,7 +32,7 @@ const userRepository = new UserRepository(prisma);
 const MIN_INTERVAL = 3;
 const MAX_INTERVAL = 120;
 const INTERVAL_INCREASE_FACTOR = 2;
-const INTERVAL_DECREASE_FACTOR = 1;
+const INTERVAL_DECREASE_FACTOR = 0.5;
 const HEALTH_CHECK_WINDOW = 5;
 
 let currentInterval = MIN_INTERVAL;
@@ -54,10 +54,12 @@ interface ClientInfo {
 
 const updateAllClientIntervals = (newIntervalTime: number) => {
     logger.info(`[INTERVAL] Updating all automatic clients to new interval: ${newIntervalTime} seconds`);
-    logger.info(`[INTERVAL] Current connected clients: ${connectedClients.size}`);
+    logger.info(
+        `[INTERVAL] Current automatic clients: ${Array.from(connectedClients.values()).filter(client => client.isAutomatic).length}`
+    );
 
     connectedClients.forEach((client: ClientInfo, userId) => {
-        if (client.timeoutId) {
+        if (client.isAutomatic && client.timeoutId) {
             clearTimeout(client.timeoutId);
             client.intervalTime = newIntervalTime * 1000;
 
