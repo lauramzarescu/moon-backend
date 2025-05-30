@@ -50,6 +50,7 @@ interface ClientInfo {
     intervalTime: number;
     isAutomatic: boolean;
     isExecuting?: boolean;
+    useProgressiveLoading?: boolean;
 }
 
 const updateAllClientIntervals = (newIntervalTime: number) => {
@@ -101,9 +102,13 @@ const decreaseInterval = () => {
     }
 };
 
-const executeWithHealthCheck = async (socket: AuthenticatedSocket) => {
+const executeWithHealthCheck = async (socket: AuthenticatedSocket, useProgressive = false) => {
     try {
-        await socketDetailsService.generateClusterDetails(socket);
+        if (useProgressive) {
+            await socketDetailsService.generateClusterDetailsProgressive(socket);
+        } else {
+            await socketDetailsService.generateClusterDetails(socket);
+        }
         successfulRequestsCount++;
 
         if (successfulRequestsCount >= HEALTH_CHECK_WINDOW) {
@@ -131,7 +136,7 @@ const scheduleNextExecution = (client: ClientInfo, userId: string) => {
 
             for (const userSocket of client.sockets) {
                 if (userSocket.connected) {
-                    await executeWithHealthCheck(userSocket);
+                    await executeWithHealthCheck(userSocket, client.useProgressiveLoading);
                 }
             }
         } catch (error: any) {
@@ -201,6 +206,7 @@ io.on('connection', async (_socket: Socket) => {
             timeoutId: null,
             intervalTime: currentInterval * 1000,
             isAutomatic: true,
+            useProgressiveLoading: true,
         };
         connectedClients.set(userId, clientInfo);
     } else {
@@ -208,6 +214,35 @@ io.on('connection', async (_socket: Socket) => {
         const client = connectedClients.get(userId);
         client.sockets.push(socket);
     }
+
+    socket.on(SOCKET_EVENTS.TOGGLE_PROGRESSIVE_LOADING, (enabled: boolean) => {
+        const client = connectedClients.get(userId);
+        if (client) {
+            client.useProgressiveLoading = enabled;
+            logger.info(`[PROGRESSIVE] User ${userId} ${enabled ? 'enabled' : 'disabled'} progressive loading`);
+        }
+    });
+
+    // Refresh specific cluster services
+    socket.on(SOCKET_EVENTS.REFRESH_CLUSTER_SERVICES, async (data: {clusterName: string}) => {
+        logger.info(`[REFRESH] User ${userId} requested refresh for cluster services: ${data.clusterName}`);
+        await socketDetailsService.refreshClusterServices(socket, data.clusterName);
+    });
+
+    // Refresh specific cluster scheduled tasks
+    socket.on(
+        SOCKET_EVENTS.REFRESH_CLUSTER_SCHEDULED_TASKS,
+        async (data: {clusterName: string; clusterArn: string}) => {
+            logger.info(`[REFRESH] User ${userId} requested refresh for cluster scheduled tasks: ${data.clusterName}`);
+            await socketDetailsService.refreshClusterScheduledTasks(socket, data.clusterName, data.clusterArn);
+        }
+    );
+
+    // Get EC2 inventory only
+    socket.on(SOCKET_EVENTS.GET_EC2_INVENTORY, async () => {
+        logger.info(`[EC2] User ${userId} requested EC2 inventory`);
+        await socketDetailsService.getEC2InventoryOnly(socket);
+    });
 
     socket.on(SOCKET_EVENTS.INTERVAL_SET, intervalTime => {
         const client = connectedClients.get(userId);
@@ -243,14 +278,16 @@ io.on('connection', async (_socket: Socket) => {
     socket.on(SOCKET_EVENTS.MANUAL_REFRESH, async () => {
         logger.info(`[MANUAL] Manual refresh requested by user ${userId}`);
         if (connectedClients.has(userId)) {
-            await executeWithHealthCheck(socket);
+            const client = connectedClients.get(userId);
+            await executeWithHealthCheck(socket, client?.useProgressiveLoading);
         }
     });
 
     socket.on(SOCKET_EVENTS.CLUSTERS_UPDATE, async () => {
         logger.info(`[UPDATE] Cluster update requested by user ${userId}`);
         if (connectedClients.has(userId)) {
-            await executeWithHealthCheck(socket);
+            const client = connectedClients.get(userId);
+            await executeWithHealthCheck(socket, client?.useProgressiveLoading);
         }
     });
 
@@ -272,5 +309,7 @@ io.on('connection', async (_socket: Socket) => {
         }
     });
 
-    await executeWithHealthCheck(socket);
+    // Start with progressive loading by default
+    const client = connectedClients.get(userId);
+    await executeWithHealthCheck(socket, client?.useProgressiveLoading);
 });

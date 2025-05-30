@@ -33,34 +33,57 @@ export class ECSService {
         this.deploymentMonitorService = new DeploymentMonitorService(ecsClient);
     }
 
-    public getEnvironmentVariables = async (taskDefinitionArn: string) => {
-        const response = await backoffAndRetry(() =>
+    /**
+     * Retrieve basic cluster details without services and scheduled tasks.
+     */
+    public getBasicClusterDetails = async (): Promise<ClusterInterface[]> => {
+        logger.info('[ECS] Fetching basic cluster details');
+        const clusters = await backoffAndRetry(() => this.ecsClient.send(new ListClustersCommand({})));
+
+        const clusterResponse = await backoffAndRetry(() =>
             this.ecsClient.send(
-                new DescribeTaskDefinitionCommand({
-                    taskDefinition: taskDefinitionArn,
+                new DescribeClustersCommand({
+                    clusters: clusters.clusterArns,
                 })
             )
         );
 
-        const containerDefArray = response.taskDefinition?.containerDefinitions;
-        if (!containerDefArray) {
-            throw new Error('Container definition not found');
+        if (!clusterResponse.clusters?.length) {
+            return [];
         }
 
-        return containerDefArray.map(containerDef => ({
-            container: containerDef.name || '',
-            environment: containerDef.environment || [],
-            environmentFiles: containerDef.environmentFiles || [],
-            secrets: containerDef.secrets || [],
+        // Return basic cluster info without services and scheduled tasks
+        return clusterResponse.clusters.map(cluster => ({
+            name: cluster.clusterName ?? 'N/A',
+            arn: cluster.clusterArn ?? 'N/A',
+            status:
+                (cluster.status as 'ACTIVE' | 'INACTIVE' | 'FAILED' | 'PROVISIONING' | 'DEPROVISIONING') ?? 'INACTIVE',
+            runningTasks: cluster.runningTasksCount ?? 0,
+            pendingTasks: cluster.pendingTasksCount ?? 0,
+            registeredContainerInstances: cluster.registeredContainerInstancesCount ?? 0,
+            servicesCount: cluster.activeServicesCount ?? 0,
+            services: [],
+            scheduledTasks: [],
         }));
+    };
+
+    // Get services for a specific cluster
+    public getClusterServicesOnly = async (clusterName: string): Promise<ServiceInterface[]> => {
+        logger.info(`[ECS] Fetching services for cluster: ${clusterName}`);
+        return await this.getClusterServices(clusterName, true);
+    };
+
+    // Get scheduled tasks for a specific cluster
+    public getClusterScheduledTasksOnly = async (
+        clusterArn: string,
+        clusterName: string
+    ): Promise<ScheduledTaskInterface[]> => {
+        logger.info(`[ECS] Fetching scheduled tasks for cluster: ${clusterName}`);
+        return await this.schedulerService.getECSScheduledTasks(clusterArn, clusterName);
     };
 
     public checkForStuckDeployment = async (clusterName: string, serviceName: string) => {
         return await this.deploymentMonitorService.isDeploymentStuck(clusterName, serviceName);
-    };
-
-    public getServiceTasksInfo = async (clusterName: string, serviceName: string) => {
-        return await this.deploymentMonitorService.getTasksInfo(clusterName, serviceName);
     };
 
     public getClusterServices = async (
@@ -255,39 +278,6 @@ export class ECSService {
         return results.filter(Boolean) as ClusterInterface[];
     };
 
-    public monitorAndResolveStuckDeployment = async (
-        clusterName: string,
-        serviceName: string,
-        autoResolve = false,
-        timeoutMinutes = 30
-    ) => {
-        const deploymentStatus = await this.checkForStuckDeployment(clusterName, serviceName);
-
-        if (deploymentStatus.isStuck) {
-            logger.info(`Detected stuck deployment for service ${serviceName} in cluster ${clusterName}`);
-
-            if (autoResolve) {
-                logger.info(`Auto-resolving stuck deployment by forcing a new deployment`);
-                await this.restartService(clusterName, serviceName);
-                return {
-                    wasStuck: true,
-                    resolved: true,
-                    action: 'forced-new-deployment',
-                };
-            }
-
-            return {
-                wasStuck: true,
-                resolved: false,
-                details: deploymentStatus.details,
-            };
-        }
-
-        return {
-            wasStuck: false,
-        };
-    };
-
     public updateServiceDesiredCount = async (
         clusterName: string,
         serviceName: string,
@@ -334,7 +324,6 @@ export class ECSService {
         if (!service) {
             throw new Error(`Service ${serviceName} not found in cluster ${clusterName}`);
         }
-
         const currentTaskDefinitionArn = service.taskDefinition;
         if (!currentTaskDefinitionArn) {
             throw new Error('Task definition not found for service');
@@ -517,9 +506,4 @@ export class ECSService {
             scheduledTasks,
         };
     };
-
-    // Add method to clear cache if needed
-    public clearTaskDefinitionCache(): void {
-        this.taskDefinitionCache.clear();
-    }
 }
