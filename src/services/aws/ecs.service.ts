@@ -228,8 +228,8 @@ export class ECSService {
                 new DescribeClustersCommand({
                     clusters: clusters.clusterArns,
                 })
-          ,  )
-        );,
+            )
+        );
 
         if (!clusterResponse.clusters?.length) {
             return [];
