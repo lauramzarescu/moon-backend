@@ -8,6 +8,7 @@ import {SOCKET_EVENTS} from '../constants/socket-events';
 import {UserRepository} from '../repositories/user/user.repository';
 import {prisma} from './db.config';
 import {JwtInterface} from '../interfaces/jwt/jwt.interface';
+import {ClientInfoResponse} from '../interfaces/socket/socket-response.interface';
 import logger from './logger';
 
 export const app: Express = express();
@@ -29,13 +30,15 @@ const connectedClients = new Map();
 const userRepository = new UserRepository(prisma);
 
 // Interval management constants
-const MIN_INTERVAL = 3;
-const MAX_INTERVAL = 120;
+const DEFAULT_INTERVAL = 10;
+const AUTOMATIC_MIN_INTERVAL = 3;
+const AUTOMATIC_MAX_INTERVAL = 120;
 const INTERVAL_INCREASE_FACTOR = 2;
 const INTERVAL_DECREASE_FACTOR = 0.5;
 const HEALTH_CHECK_WINDOW = 5;
 
-let currentInterval = MIN_INTERVAL;
+let currentInterval = DEFAULT_INTERVAL;
+let currentAutomaticInterval = AUTOMATIC_MIN_INTERVAL;
 let successfulRequestsCount = 0;
 
 export interface AuthenticatedSocket extends Socket {
@@ -53,6 +56,33 @@ interface ClientInfo {
     useProgressiveLoading?: boolean;
 }
 
+const createClientInfoResponse = (userId: string): ClientInfoResponse => {
+    const client = connectedClients.get(userId);
+
+    if (!client) {
+        return {
+            isAutomatic: false,
+            isExecuting: false,
+            useProgressiveLoading: false,
+            connectedSockets: 0,
+            intervalTime: 0,
+        };
+    }
+
+    return {
+        isAutomatic: client.isAutomatic,
+        isExecuting: client.isExecuting || false,
+        useProgressiveLoading: client.useProgressiveLoading || false,
+        connectedSockets: client.sockets.length,
+        intervalTime: client.intervalTime / 1000,
+        automaticIntervalTime: currentAutomaticInterval,
+    };
+};
+
+// Export the helper function for use in services
+export const getClientInfoResponse = createClientInfoResponse;
+
+// Update all automatic clients to the new interval
 const updateAllClientIntervals = (newIntervalTime: number) => {
     logger.info(`[INTERVAL] Updating all automatic clients to new interval: ${newIntervalTime} seconds`);
     logger.info(
@@ -68,7 +98,9 @@ const updateAllClientIntervals = (newIntervalTime: number) => {
 
             for (const userSocket of client.sockets) {
                 if (userSocket.connected) {
-                    userSocket.emit(SOCKET_EVENTS.INTERVAL_UPDATED, newIntervalTime);
+                    userSocket.emit(SOCKET_EVENTS.INTERVAL_UPDATED, {
+                        clientInfo: createClientInfoResponse(userId),
+                    });
                 }
             }
         }
@@ -76,56 +108,61 @@ const updateAllClientIntervals = (newIntervalTime: number) => {
 };
 
 const increaseInterval = () => {
-    logger.info(`[THROTTLE] Rate limit detected. Current interval: ${currentInterval}s`);
+    logger.info(`[THROTTLE] Rate limit detected. Current interval: ${currentAutomaticInterval}s`);
     successfulRequestsCount = 0;
-    const newInterval = Math.min(currentInterval * INTERVAL_INCREASE_FACTOR, MAX_INTERVAL);
+    const newInterval = Math.min(currentAutomaticInterval * INTERVAL_INCREASE_FACTOR, AUTOMATIC_MAX_INTERVAL);
 
-    if (newInterval !== currentInterval) {
-        logger.info(`[THROTTLE] Increasing interval from ${currentInterval}s to ${newInterval}s`);
-        currentInterval = newInterval;
-        updateAllClientIntervals(currentInterval);
+    if (newInterval !== currentAutomaticInterval) {
+        logger.info(`[THROTTLE] Increasing interval from ${currentAutomaticInterval}s to ${newInterval}s`);
+        currentAutomaticInterval = newInterval;
+        updateAllClientIntervals(currentAutomaticInterval);
     } else {
-        logger.info(`[THROTTLE] Already at maximum interval: ${MAX_INTERVAL}s`);
+        logger.info(`[THROTTLE] Already at maximum interval: ${AUTOMATIC_MAX_INTERVAL}s`);
     }
 };
 
 const decreaseInterval = () => {
-    logger.info(`[HEALTH] Health check passed. Current interval: ${currentInterval}s`);
-    const newInterval = Math.max(currentInterval * INTERVAL_DECREASE_FACTOR, MIN_INTERVAL);
+    logger.info(`[HEALTH] Health check passed. Current interval: ${currentAutomaticInterval}s`);
+    successfulRequestsCount = 0;
+    const newInterval = Math.max(currentAutomaticInterval * INTERVAL_DECREASE_FACTOR, AUTOMATIC_MIN_INTERVAL);
 
-    if (newInterval !== currentInterval) {
-        logger.info(`[HEALTH] Decreasing interval from ${currentInterval}s to ${newInterval}s`);
-        currentInterval = newInterval;
-        updateAllClientIntervals(currentInterval);
+    if (newInterval !== currentAutomaticInterval) {
+        logger.info(`[HEALTH] Decreasing interval from ${currentAutomaticInterval}s to ${newInterval}s`);
+        currentAutomaticInterval = newInterval;
+        updateAllClientIntervals(currentAutomaticInterval);
     } else {
-        logger.info(`[HEALTH] Already at minimum interval: ${MIN_INTERVAL}s`);
+        logger.info(`[HEALTH] Already at minimum interval: ${AUTOMATIC_MIN_INTERVAL}s`);
     }
 };
 
-const executeWithHealthCheck = async (socket: AuthenticatedSocket, useProgressive = false) => {
+const executeWithHealthCheck = async (socket: AuthenticatedSocket, client: ClientInfo) => {
     try {
-        if (useProgressive) {
+        if (client.useProgressiveLoading) {
             await socketDetailsService.generateClusterDetailsProgressive(socket);
         } else {
             await socketDetailsService.generateClusterDetails(socket);
         }
-        successfulRequestsCount++;
 
-        if (successfulRequestsCount >= HEALTH_CHECK_WINDOW) {
-            decreaseInterval();
+        if (client.isAutomatic) {
+            successfulRequestsCount++;
+            if (successfulRequestsCount >= HEALTH_CHECK_WINDOW) {
+                decreaseInterval();
+            }
         }
     } catch (error: any) {
-        logger.info(`[ERROR] Execute failed: ${error.message}`);
+        logger.error(`[ERROR] Execute failed: ${error.message}`);
 
         successfulRequestsCount = 0;
 
-        if (error.message?.toLowerCase().includes('exceeded') || error.message?.toLowerCase().includes('throttling')) {
-            increaseInterval();
-        }
+        increaseInterval();
+
+        // if (error.message?.toLowerCase().includes('exceeded') || error.message?.toLowerCase().includes('throttling')) {
+        // }
 
         socket.emit('clusters-error', {
             error: 'Failed to fetch cluster information',
             details: error,
+            clientInfo: createClientInfoResponse(socket.userId),
         });
     }
 };
@@ -139,7 +176,7 @@ const scheduleNextExecution = (client: ClientInfo, userId: string) => {
 
             for (const userSocket of client.sockets) {
                 if (userSocket.connected) {
-                    await executeWithHealthCheck(userSocket, client.useProgressiveLoading);
+                    await executeWithHealthCheck(userSocket, client);
                 }
             }
         } catch (error: any) {
@@ -207,9 +244,9 @@ io.on('connection', async (_socket: Socket) => {
         const clientInfo: ClientInfo = {
             sockets: [socket],
             timeoutId: null,
-            intervalTime: currentInterval * 1000,
-            isAutomatic: true,
-            useProgressiveLoading: true,
+            intervalTime: currentInterval,
+            isAutomatic: false,
+            useProgressiveLoading: false,
         };
         connectedClients.set(userId, clientInfo);
     } else {
@@ -223,6 +260,13 @@ io.on('connection', async (_socket: Socket) => {
         if (client) {
             client.useProgressiveLoading = enabled;
             logger.info(`[PROGRESSIVE] User ${userId} ${enabled ? 'enabled' : 'disabled'} progressive loading`);
+
+            // Send updated client info to all sockets
+            for (const userSocket of client.sockets) {
+                if (userSocket.connected) {
+                    userSocket.emit('client-info-updated', createClientInfoResponse(userId));
+                }
+            }
         }
     });
 
@@ -260,15 +304,20 @@ io.on('connection', async (_socket: Socket) => {
             // Handle automatic mode (-1)
             if (intervalTime === -1) {
                 client.isAutomatic = true;
-                client.intervalTime = currentInterval * 1000;
-                logger.info(`[INTERVAL] Setting automatic mode for user ${userId} starting at ${currentInterval}s`);
+                client.intervalTime = currentAutomaticInterval * 1000;
+                logger.info(
+                    `[INTERVAL] Setting automatic mode for user ${userId} starting at ${currentAutomaticInterval}s`
+                );
             } else {
                 client.isAutomatic = false;
                 client.intervalTime = intervalTime * 1000;
                 logger.info(`[INTERVAL] Setting manual mode for user ${userId} at ${intervalTime}s`);
             }
 
-            socket.emit(SOCKET_EVENTS.INTERVAL_UPDATED, client.intervalTime / 1000);
+            const clientInfoResponse = createClientInfoResponse(userId);
+            socket.emit(SOCKET_EVENTS.INTERVAL_UPDATED, {
+                clientInfo: clientInfoResponse,
+            });
 
             if (intervalTime === 0) {
                 return;
@@ -282,7 +331,7 @@ io.on('connection', async (_socket: Socket) => {
         logger.info(`[MANUAL] Manual refresh requested by user ${userId}`);
         if (connectedClients.has(userId)) {
             const client = connectedClients.get(userId);
-            await executeWithHealthCheck(socket, client?.useProgressiveLoading);
+            await executeWithHealthCheck(socket, client);
         }
     });
 
@@ -290,7 +339,7 @@ io.on('connection', async (_socket: Socket) => {
         logger.info(`[UPDATE] Cluster update requested by user ${userId}`);
         if (connectedClients.has(userId)) {
             const client = connectedClients.get(userId);
-            await executeWithHealthCheck(socket, client?.useProgressiveLoading);
+            await executeWithHealthCheck(socket, client);
         }
     });
 
@@ -314,5 +363,5 @@ io.on('connection', async (_socket: Socket) => {
 
     // Start with progressive loading by default
     const client = connectedClients.get(userId);
-    await executeWithHealthCheck(socket, client?.useProgressiveLoading);
+    await executeWithHealthCheck(socket, client);
 });

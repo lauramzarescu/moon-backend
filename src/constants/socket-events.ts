@@ -26,6 +26,9 @@ export const SOCKET_EVENTS = {
     REFRESH_CLUSTER_SERVICES: 'refresh-cluster-services',
     REFRESH_CLUSTER_SCHEDULED_TASKS: 'refresh-cluster-scheduled-tasks',
     GET_EC2_INVENTORY: 'get-ec2-inventory',
+
+    // Client info events
+    CLIENT_INFO_UPDATED: 'client-info-updated',
 } as const;
 
 // Type for socket event names

@@ -1,5 +1,6 @@
 import {
     AWSResponseInterface,
+    ClientInfoResponse,
     ClustersBasicResponse,
     ClusterScheduledTasksResponse,
     ClusterServicesResponse,
@@ -16,6 +17,7 @@ export interface IntervalSetPayload {
 
 export interface IntervalUpdatedPayload {
     intervalTime: number;
+    clientInfo: ClientInfoResponse;
 }
 
 export interface RefreshClusterServicesPayload {
@@ -52,4 +54,5 @@ export interface SocketEventMap {
     'loading-complete': (data: LoadingCompleteResponse) => void;
     'clusters-error': (data: SocketErrorResponse) => void;
     'interval-updated': (data: IntervalUpdatedPayload) => void;
+    'client-info-updated': (data: ClientInfoResponse) => void;
 }

@@ -2,6 +2,7 @@ import NodeCache from 'node-cache';
 import {ec2Client, ecsClient} from '../config/aws.config';
 import {
     AWSResponseInterface,
+    ClientInfoResponse,
     ClustersBasicResponse,
     ClusterScheduledTasksResponse,
     ClusterServicesResponse,
@@ -16,7 +17,7 @@ import {AWS_DATA_CACHE_KEY, CACHE_CONFIG} from '../config/cache.config';
 import {EC2Service} from './aws/ec2.service';
 import {ECSService} from './aws/ecs.service';
 import {AuditLogHelper} from '../controllers/audit-log/audit-log.helper';
-import {AuthenticatedSocket} from '../config/socket.config';
+import {AuthenticatedSocket, getClientInfoResponse} from '../config/socket.config';
 import logger from '../config/logger';
 
 export class SocketDetailsService {
@@ -35,6 +36,11 @@ export class SocketDetailsService {
         return this.instance;
     }
 
+    // Helper method to get client info for responses
+    private getClientInfo(socket: AuthenticatedSocket): ClientInfoResponse {
+        return getClientInfoResponse(socket.userId);
+    }
+
     // Original method for backward compatibility
     public async generateClusterDetails(socket: AuthenticatedSocket): Promise<void> {
         logger.info('[INFO] Generating cluster details (legacy mode)');
@@ -45,6 +51,7 @@ export class SocketDetailsService {
             const response: AWSResponseInterface = {
                 ...(cachedData as AWSResponseInterface),
                 updatedOn: new Date().toISOString(),
+                clientInfo: this.getClientInfo(socket),
             };
             socket.emit(SOCKET_EVENTS.CLUSTERS_UPDATE, response);
             return;
@@ -76,6 +83,7 @@ export class SocketDetailsService {
                 instances: instances,
             },
             updatedOn: new Date().toISOString(),
+            clientInfo: this.getClientInfo(socket),
         };
 
         logger.info('[INFO] Caching cluster details');
@@ -99,6 +107,7 @@ export class SocketDetailsService {
                 totalSteps,
                 message: 'Loading basic cluster information...',
                 progress: (currentStep / totalSteps) * 100,
+                clientInfo: this.getClientInfo(socket),
             };
             socket.emit(SOCKET_EVENTS.LOADING_PROGRESS, progressResponse1);
 
@@ -106,6 +115,7 @@ export class SocketDetailsService {
             const basicResponse: ClustersBasicResponse = {
                 clusters: basicClusters,
                 updatedOn: new Date().toISOString(),
+                clientInfo: this.getClientInfo(socket),
             };
             socket.emit(SOCKET_EVENTS.CLUSTERS_BASIC_UPDATE, basicResponse);
 
@@ -116,6 +126,7 @@ export class SocketDetailsService {
                 totalSteps,
                 message: 'Loading EC2 inventory...',
                 progress: (currentStep / totalSteps) * 100,
+                clientInfo: this.getClientInfo(socket),
             };
             socket.emit(SOCKET_EVENTS.LOADING_PROGRESS, progressResponse2);
 
@@ -123,6 +134,7 @@ export class SocketDetailsService {
             const inventoryResponse: EC2InventoryResponse = {
                 instances,
                 updatedOn: new Date().toISOString(),
+                clientInfo: this.getClientInfo(socket),
             };
             socket.emit(SOCKET_EVENTS.EC2_INVENTORY_UPDATE, inventoryResponse);
 
@@ -133,6 +145,7 @@ export class SocketDetailsService {
                 totalSteps,
                 message: 'Loading cluster services...',
                 progress: (currentStep / totalSteps) * 100,
+                clientInfo: this.getClientInfo(socket),
             };
             socket.emit(SOCKET_EVENTS.LOADING_PROGRESS, progressResponse3);
 
@@ -145,6 +158,7 @@ export class SocketDetailsService {
                 totalSteps,
                 message: 'Loading scheduled tasks...',
                 progress: (currentStep / totalSteps) * 100,
+                clientInfo: this.getClientInfo(socket),
             };
             socket.emit(SOCKET_EVENTS.LOADING_PROGRESS, progressResponse4);
 
@@ -154,6 +168,7 @@ export class SocketDetailsService {
             const completeResponse: LoadingCompleteResponse = {
                 message: 'All data loaded successfully',
                 updatedOn: new Date().toISOString(),
+                clientInfo: this.getClientInfo(socket),
             };
             socket.emit(SOCKET_EVENTS.LOADING_COMPLETE, completeResponse);
 
@@ -163,6 +178,7 @@ export class SocketDetailsService {
             const errorResponse: SocketErrorResponse = {
                 error: 'Failed to load cluster information progressively',
                 details: error.message,
+                clientInfo: this.getClientInfo(socket),
             };
             socket.emit(SOCKET_EVENTS.CLUSTERS_ERROR, errorResponse);
         }
@@ -187,6 +203,7 @@ export class SocketDetailsService {
                         percentage: ((index + 1) / clusters.length) * 100,
                     },
                     updatedOn: new Date().toISOString(),
+                    clientInfo: this.getClientInfo(socket),
                 };
 
                 socket.emit(SOCKET_EVENTS.CLUSTER_SERVICES_UPDATE, response);
@@ -199,6 +216,7 @@ export class SocketDetailsService {
                     error: `Failed to load services for cluster ${cluster.name}`,
                     clusterName: cluster.name,
                     details: error.message,
+                    clientInfo: this.getClientInfo(socket),
                 };
                 socket.emit(SOCKET_EVENTS.CLUSTERS_ERROR, errorResponse);
             }
@@ -231,6 +249,7 @@ export class SocketDetailsService {
                         percentage: ((index + 1) / clusters.length) * 100,
                     },
                     updatedOn: new Date().toISOString(),
+                    clientInfo: this.getClientInfo(socket),
                 };
 
                 socket.emit(SOCKET_EVENTS.CLUSTER_SCHEDULED_TASKS_UPDATE, response);
@@ -243,6 +262,7 @@ export class SocketDetailsService {
                     error: `Failed to load scheduled tasks for cluster ${cluster.name}`,
                     clusterName: cluster.name,
                     details: error.message,
+                    clientInfo: this.getClientInfo(socket),
                 };
                 socket.emit(SOCKET_EVENTS.CLUSTERS_ERROR, errorResponse);
             }
@@ -265,6 +285,7 @@ export class SocketDetailsService {
             const response: EC2InventoryResponse = {
                 instances,
                 updatedOn: new Date().toISOString(),
+                clientInfo: this.getClientInfo(socket),
             };
 
             socket.emit(SOCKET_EVENTS.EC2_INVENTORY_UPDATE, response);
@@ -273,6 +294,7 @@ export class SocketDetailsService {
             const errorResponse: SocketErrorResponse = {
                 error: 'Failed to load EC2 inventory',
                 details: error.message,
+                clientInfo: this.getClientInfo(socket),
             };
             socket.emit(SOCKET_EVENTS.CLUSTERS_ERROR, errorResponse);
         }
@@ -288,6 +310,7 @@ export class SocketDetailsService {
                 clusterName,
                 services,
                 updatedOn: new Date().toISOString(),
+                clientInfo: this.getClientInfo(socket),
             };
 
             socket.emit(SOCKET_EVENTS.CLUSTER_SERVICES_UPDATE, response);
@@ -297,6 +320,7 @@ export class SocketDetailsService {
                 error: `Failed to refresh services for cluster ${clusterName}`,
                 clusterName,
                 details: error.message,
+                clientInfo: this.getClientInfo(socket),
             };
             socket.emit(SOCKET_EVENTS.CLUSTERS_ERROR, errorResponse);
         }
@@ -317,6 +341,7 @@ export class SocketDetailsService {
                 clusterArn,
                 scheduledTasks,
                 updatedOn: new Date().toISOString(),
+                clientInfo: this.getClientInfo(socket),
             };
 
             socket.emit(SOCKET_EVENTS.CLUSTER_SCHEDULED_TASKS_UPDATE, response);
@@ -326,6 +351,7 @@ export class SocketDetailsService {
                 error: `Failed to refresh scheduled tasks for cluster ${clusterName}`,
                 clusterName,
                 details: error.message,
+                clientInfo: this.getClientInfo(socket),
             };
             socket.emit(SOCKET_EVENTS.CLUSTERS_ERROR, errorResponse);
         }
@@ -364,7 +390,6 @@ export class SocketDetailsService {
                     services: [],
                 }));
             } else {
-                // Apply service-level options
                 clusterDetails = clusterDetails.map(cluster => ({
                     ...cluster,
                     services: cluster.services.map(service => ({
@@ -383,6 +408,7 @@ export class SocketDetailsService {
                     instances: instances,
                 },
                 updatedOn: new Date().toISOString(),
+                clientInfo: this.getClientInfo(socket),
             };
 
             socket.emit(SOCKET_EVENTS.CLUSTERS_UPDATE, response);
@@ -391,6 +417,7 @@ export class SocketDetailsService {
             const errorResponse: SocketErrorResponse = {
                 error: 'Failed to load cluster details with specified options',
                 details: error.message,
+                clientInfo: this.getClientInfo(socket),
             };
             socket.emit(SOCKET_EVENTS.CLUSTERS_ERROR, errorResponse);
         }
