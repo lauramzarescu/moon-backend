@@ -25,7 +25,7 @@ import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 import {AuditLogHelper} from '../audit-log/audit-log.helper';
 import logger from '../../config/logger';
 
-const TWO_FACTOR_EXPIRATION_DAYS = 7;
+const TWO_FACTOR_EXPIRATION_DAYS = 21;
 
 export class UserController {
     static userRepository = new UserRepository(prisma);

@@ -16,15 +16,31 @@ import {Instance, Reservation} from '@aws-sdk/client-ec2/dist-types/models';
 
 export class EC2Service {
     private readonly ec2Client: EC2Client;
+    private instanceCache: InstanceInterface[] | null = null;
+    private cacheTimestamp: number = 0;
+    private readonly CACHE_TTL = 5000;
 
     constructor(ec2Client: EC2Client) {
         this.ec2Client = ec2Client;
     }
 
-    public getInstances = async (): Promise<InstanceInterface[]> => {
+    public getInstances = async (useCache: boolean = false): Promise<InstanceInterface[]> => {
+        // Use cache if requested and cache is still valid
+        if (useCache && this.instanceCache && Date.now() - this.cacheTimestamp < this.CACHE_TTL) {
+            logger.info('[EC2] Returning cached instances');
+            return this.instanceCache;
+        }
+
+        logger.info('[EC2] Fetching fresh instances from AWS');
         const instanceResponse = await backoffAndRetry(() => this.ec2Client.send(new DescribeInstancesCommand({})));
 
-        return this.mapInstances(instanceResponse);
+        const instances = this.mapInstances(instanceResponse);
+
+        // Update cache
+        this.instanceCache = instances;
+        this.cacheTimestamp = Date.now();
+
+        return instances;
     };
 
     private mapInstances = (instanceResponse: DescribeInstancesCommandOutput): InstanceInterface[] => {
