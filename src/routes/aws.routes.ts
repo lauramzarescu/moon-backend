@@ -1,5 +1,6 @@
 import {ClustersController} from '../controllers/aws/clusters.controller';
 import {ServicesController} from '../controllers/aws/services.controller';
+import {EnvironmentVariableController} from '../controllers/aws/environment-variable.controller';
 import express from 'express';
 import {userInfoMiddleware} from '../middlewares/user-info.middleware';
 import {isAuthenticatedGuard} from '../middlewares/is-authenticated.middleware';
@@ -9,6 +10,7 @@ const router = express.Router();
 
 const servicesController = new ServicesController();
 const clustersController = new ClustersController();
+const environmentVariableController = new EnvironmentVariableController();
 
 router.use(userInfoMiddleware);
 
@@ -31,5 +33,35 @@ router.post(
     isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_WRITE]),
     servicesController.restartService
 );
+
+router.post(
+    '/services/environment-variables',
+    isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_WRITE]),
+    environmentVariableController.addEnvironmentVariables
+);
+
+router.put(
+    '/services/environment-variables',
+    isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_WRITE]),
+    environmentVariableController.editEnvironmentVariables
+);
+
+router.delete(
+    '/services/environment-variables',
+    isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_WRITE]),
+    environmentVariableController.removeEnvironmentVariables
+);
+
+// router.put(
+//     '/services/environment-variables/replace',
+//     isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_WRITE]),
+//     environmentVariableController.replaceEnvironmentVariables
+// );
+//
+// router.put(
+//     '/services/environment-variables/bulk-update',
+//     isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_WRITE]),
+//     environmentVariableController.bulkUpdateEnvironmentVariables
+// );
 
 export default router;
