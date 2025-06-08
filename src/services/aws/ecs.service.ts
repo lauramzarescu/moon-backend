@@ -170,13 +170,13 @@ export class ECSService {
         serviceName: string,
         containerName: string,
         variableNames: string[]
-    ),: Promise<string> => {
+    ): Promise<string> => {
         return await this.environmentVariableService.removeEnvironmentVariables(
             clusterName,
             serviceName,
             containerName,
             variableNames
-     ,   );
+        );
     };
 
     /**
@@ -186,13 +186,13 @@ export class ECSService {
         clusterName: string,
         serviceName: string,
         containerName: string,
-        environmentVariables: EnvironmentVariable[],
+        environmentVariables: EnvironmentVariable[]
     ): Promise<string> => {
         return await this.environmentVariableService.replaceAllEnvironmentVariables(
             clusterName,
             serviceName,
             containerName,
-            environmentVariables,
+            environmentVariables
         );
     };
 
@@ -202,12 +202,12 @@ export class ECSService {
     public bulkUpdateEnvironmentVariables = async (
         clusterName: string,
         serviceName: string,
-        operations: EnvironmentVariableOperation[],
+        operations: EnvironmentVariableOperation[]
     ): Promise<string> => {
         return await this.environmentVariableService.bulkUpdateEnvironmentVariables(
             clusterName,
             serviceName,
-            operations,
+            operations
         );
     };
 }
