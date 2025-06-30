@@ -8,8 +8,13 @@ export enum AuditLogEnum {
     USER_2FA_ATTEMPT = 'user:2fa:attempt',
     USER_2FA_ENABLED = 'user:2fa:enabled',
     USER_2FA_DISABLED = 'user:2fa:disabled',
+    USER_PASSWORD_RESET_REQUESTED = 'user:password:reset:requested',
     USER_PASSWORD_RESET = 'user:password:reset',
+    USER_PASSWORD_ADMIN_RESET = 'user:password:admin:reset',
     USER_PASSWORD_CHANGED = 'user:password:changed',
+    USER_2FA_SESSION_VERIFIED = 'user:2fa:session:verified',
+    USER_2FA_RESET_REQUESTED = 'user:2fa:reset:requested',
+    USER_2FA_RESET = 'user:2fa:reset',
 
     // Action events
     ACTION_CREATED = 'action:created',

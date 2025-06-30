@@ -5,11 +5,11 @@ import {UserRepository} from '../../repositories/user/user.repository';
 import moment from 'moment';
 import {loginSchema} from './auth.schema';
 import {prisma} from '../../config/db.config';
-import {UserController} from '../user/user.controller';
 import {AuditLogHelper} from '../audit-log/audit-log.helper';
 import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 import {LoginType} from '@prisma/client';
 import logger from '../../config/logger';
+import {TwoFactorController} from '../user/two-factor.controller';
 
 export class AuthController {
     static userRepository = new UserRepository(prisma);
@@ -42,7 +42,7 @@ export class AuthController {
                 return;
             }
 
-            const verificationRequired = await UserController.is2FAVerificationNeeded(user.id, req);
+            const verificationRequired = await TwoFactorController.is2FAVerificationNeeded(user.id, req);
 
             if (verificationRequired) {
                 const tempToken = AuthService.createTemporaryToken(user);
