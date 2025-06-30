@@ -57,25 +57,25 @@ router.get(
     userInfoMiddleware,
     isAuthenticatedGuard([PermissionEnum.USER_READ]),
     TwoFactorController.get2FAStatus
-),;
+);
 router.post(
     '/2fa/setup',
     userInfoMiddleware,
     isAuthenticatedGuard([PermissionEnum.USER_READ]),
-    TwoFactorController.setup2FA,
+    TwoFactorController.setup2FA
 );
 router.post('/2fa/verify-session', TwoFactorController.verifySession2FA);
 router.post(
     '/2fa/verify',
     userInfoMiddleware,
     isAuthenticatedGuard([PermissionEnum.USER_READ]),
-    TwoFactorController.verify2FACode,
+    TwoFactorController.verify2FACode
 );
 router.post(
     '/2fa/disable',
     userInfoMiddleware,
     isAuthenticatedGuard([PermissionEnum.USER_READ]),
-    TwoFactorController.disable2FA,
+    TwoFactorController.disable2FA
 );
 router.post('/admin/2fa/reset/:id', TwoFactorController.adminReset2FAForUser);
 router.post('/2fa/reset/confirm/:token', TwoFactorController.confirm2FAReset);
