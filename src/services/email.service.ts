@@ -1,53 +1,104 @@
 import logger from '../config/logger';
+import Mailjet from 'node-mailjet';
+import {EmailTemplateUtil} from '../utils/email-template.util';
 
 export class EmailService {
+    private mailjet: Mailjet | null = null;
+
+    constructor() {
+        if (process.env.MAILJET_API_KEY && process.env.MAILJET_SECRET_KEY) {
+            this.mailjet = new Mailjet({
+                apiKey: process.env.MAILJET_API_KEY,
+                apiSecret: process.env.MAILJET_SECRET_KEY,
+            });
+        }
+    }
+
+    private async sendEmail(to: string, subject: string, htmlContent: string, textContent?: string): Promise<void> {
+        if (!this.mailjet) {
+            // Mock email in development
+            logger.info(`[MOCK EMAIL] To: ${to}`);
+            logger.info(`[MOCK EMAIL] Subject: ${subject}`);
+            logger.info(`[MOCK EMAIL] Content: ${textContent || htmlContent}`);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            return;
+        }
+
+        try {
+            await this.mailjet
+                .post('send', {version: 'v3.1'})
+                .request({
+                    Messages: [
+                        {
+                            From: {
+                                Email: process.env.MAILJET_FROM_EMAIL || 'noreply@yourdomain.com',
+                                Name: process.env.MAILJET_FROM_NAME || 'Your App Name',
+                            },
+                            To: [
+                                {
+                                    Email: to,
+                                },
+                            ],
+                            Subject: subject,
+                            TextPart: textContent || htmlContent.replace(/<[^>]*>/g, ''),
+                            HTMLPart: htmlContent,
+                        },
+                    ],
+                })
+                .then(() => {
+                    logger.info(`Email sent successfully to: ${to}`);
+                })
+                .catch((error: any) => {
+                    throw new Error(`Failed to send email: ${error.message}`);
+                });
+
+            logger.info(`Email sent successfully to: ${to}`);
+        } catch (error: any) {
+            logger.error(`Failed to send email to ${to}:`, error);
+            throw new Error(`Failed to send email: ${error.message}`);
+        }
+    }
+
     async sendPasswordResetEmail(email: string, resetToken: string): Promise<void> {
-        // Mock email sending - replace with actual email service
-        const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+        const resetLink = `${process.env.APP_URL}/reset-password?token=${resetToken}`;
+        const subject = 'Reset Your Password';
 
-        logger.info(`[MOCK EMAIL] Password Reset Email sent to: ${email}`);
-        logger.info(`[MOCK EMAIL] Reset Link: ${resetLink}`);
-        logger.info(`[MOCK EMAIL] Subject: Reset Your Password`);
-        logger.info(`[MOCK EMAIL] Body: Click the following link to reset your password: ${resetLink}`);
+        const {html, text} = EmailTemplateUtil.renderTemplate('password-reset', {
+            resetLink,
+        });
 
-        // Simulate email sending delay
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await this.sendEmail(email, subject, html, text);
     }
 
     async sendPasswordResetNotification(userEmail: string, adminEmail: string): Promise<void> {
-        // Mock email sending - replace with actual email service
-        logger.info(`[MOCK EMAIL] Password Reset Notification sent to: ${userEmail}`);
-        logger.info(`[MOCK EMAIL] Subject: Your Password Has Been Reset`);
-        logger.info(
-            `[MOCK EMAIL] Body: Your password has been reset by an administrator (${adminEmail}). Please log in with your new password.`
-        );
+        const subject = 'Your Password Has Been Reset';
 
-        // Simulate email sending delay
-        await new Promise(resolve => setTimeout(resolve, 100));
+        const {html, text} = EmailTemplateUtil.renderTemplate('password-reset-notification', {
+            adminEmail,
+        });
+
+        await this.sendEmail(userEmail, subject, html, text);
     }
 
-    async send2FAResetEmail(email: string, resetToken: string): Promise<void> {
-        // Mock email sending - replace with actual email service
-        const resetLink = `${process.env.FRONTEND_URL}/reset-2fa?token=${resetToken}`;
+    async send2FAResetEmail(email: string, resetToken: string, adminEmail?: string): Promise<void> {
+        const resetLink = `${process.env.APP_URL}/reset-2fa?token=${resetToken}`;
+        const subject = 'Reset Your Two-Factor Authentication';
 
-        logger.info(`[MOCK EMAIL] 2FA Reset Email sent to: ${email}`);
-        logger.info(`[MOCK EMAIL] Reset Link: ${resetLink}`);
-        logger.info(`[MOCK EMAIL] Subject: Reset Your Two-Factor Authentication`);
-        logger.info(`[MOCK EMAIL] Body: Click the following link to reset your 2FA: ${resetLink}`);
+        const {html, text} = EmailTemplateUtil.renderTemplate('2fa-reset', {
+            resetLink,
+            adminEmail,
+        });
 
-        // Simulate email sending delay
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await this.sendEmail(email, subject, html, text);
     }
 
     async send2FAResetNotification(email: string): Promise<void> {
-        // Mock email sending - replace with actual email service
-        logger.info(`[MOCK EMAIL] 2FA Reset Notification sent to: ${email}`);
-        logger.info(`[MOCK EMAIL] Subject: Your Two-Factor Authentication Has Been Reset`);
-        logger.info(
-            `[MOCK EMAIL] Body: Your 2FA has been reset. You can now set up 2FA again from your account settings.`
-        );
+        const subject = 'Your Two-Factor Authentication Has Been Reset';
 
-        // Simulate email sending delay
-        await new Promise(resolve => setTimeout(resolve, 100));
+        const {html, text} = EmailTemplateUtil.renderTemplate('2fa-reset-notification', {
+            frontendUrl: process.env.APP_URL,
+        });
+
+        await this.sendEmail(email, subject, html, text);
     }
 }

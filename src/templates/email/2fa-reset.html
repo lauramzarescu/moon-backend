@@ -1,0 +1,22 @@
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <h2>2FA Reset Request</h2>
+    {{#if adminEmail}}
+    <p>Your two-factor authentication has been reset by an administrator ({{adminEmail}}).</p>
+    {{else}}
+    <p>You have requested to reset your two-factor authentication.</p>
+    {{/if}}
+    <p>Click the button below to confirm the 2FA reset:</p>
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{{resetLink}}"
+           style="background-color: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
+            Confirm 2FA Reset
+        </a>
+    </div>
+    <p>If the button doesn't work, copy and paste this link into your browser:</p>
+    <p style="word-break: break-all; color: #666;">{{resetLink}}</p>
+    <p><strong>This link will expire in 24 hours.</strong></p>
+    <p>After confirming, you can set up 2FA again from your account settings.</p>
+    {{#unless adminEmail}}
+    <p>If you didn't request this 2FA reset, please ignore this email.</p>
+    {{/unless}}
+</div>

@@ -1,0 +1,18 @@
+2FA Reset Request
+
+{{#if adminEmail}}
+Your two-factor authentication has been reset by an administrator ({{adminEmail}}).
+{{else}}
+You have requested to reset your two-factor authentication.
+{{/if}}
+
+Click the following link to confirm the 2FA reset:
+{{resetLink}}
+
+This link will expire in 24 hours.
+
+After confirming, you can set up 2FA again from your account settings.
+
+{{#unless adminEmail}}
+If you didn't request this 2FA reset, please ignore this email.
+{{/unless}}

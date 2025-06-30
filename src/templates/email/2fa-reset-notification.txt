@@ -1,0 +1,6 @@
+2FA Reset Confirmation
+
+Your two-factor authentication has been successfully reset.
+You can now set up 2FA again from your account settings for enhanced security.
+
+Go to: {{frontendUrl}}/settings/security

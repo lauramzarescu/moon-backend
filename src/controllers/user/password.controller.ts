@@ -250,6 +250,7 @@ export class PasswordController {
             await this.userRepository.update(targetUser.id, {
                 resetToken,
                 resetTokenExpiry,
+                password: null,
             });
 
             await this.emailService.sendPasswordResetEmail(targetUser.email, resetToken);
