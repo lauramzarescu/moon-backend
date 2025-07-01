@@ -1,0 +1,10 @@
+Invitation on Moon Platform
+
+You have been invited to join Moon Platform by {{adminEmail}}.
+
+Click the following link to accept the invitation and set your new password:
+{{resetLink}}
+
+This link will expire in 24 hours.
+
+If you didn't expect this invitation, please ignore this email.

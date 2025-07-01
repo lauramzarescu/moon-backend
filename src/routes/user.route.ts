@@ -6,8 +6,23 @@ import {isAuthenticatedGuard} from '../middlewares/is-authenticated.middleware';
 import {PermissionEnum} from '../enums/rbac/permission.enum';
 import {requireOrganizationAdminGuard} from '../middlewares/admin-auth.middleware';
 import {userInfoMiddleware} from '../middlewares/user-info.middleware';
+import multer from 'multer';
 
 const router = express.Router();
+
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB limit
+    },
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype === 'application/json' || file.originalname.endsWith('.json')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only JSON files are allowed'));
+        }
+    },
+});
 
 // User management routes
 router.get('/', isAuthenticatedGuard([PermissionEnum.USER_READ]), UserController.getAll);
@@ -19,6 +34,12 @@ router.get(
     UserController.getOne
 );
 router.post('/', userInfoMiddleware, isAuthenticatedGuard([PermissionEnum.USER_CREATE]), UserController.create);
+router.post(
+    '/invitation',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_CREATE]),
+    UserController.createByInvitation
+);
 router.put('/:id', userInfoMiddleware, isAuthenticatedGuard([PermissionEnum.USER_WRITE]), UserController.update);
 router.delete(
     '/:id',
@@ -26,6 +47,23 @@ router.delete(
     isAuthenticatedGuard([PermissionEnum.USER_DELETE]),
     requireOrganizationAdminGuard,
     UserController.delete
+);
+
+// Import/Export routes
+router.get(
+    '/export/json',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    requireOrganizationAdminGuard,
+    upload.single('file'),
+    UserController.exportUsers
+);
+router.post(
+    '/import/json',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_CREATE]),
+    requireOrganizationAdminGuard,
+    UserController.importUsers
 );
 
 // Password management routes

@@ -80,6 +80,18 @@ export class EmailService {
         await this.sendEmail(userEmail, subject, html, text);
     }
 
+    async sendInvitationEmail(email: string, adminEmail: string, resetToken: string): Promise<void> {
+        const resetLink = `${process.env.APP_URL}/reset-password?token=${resetToken}`;
+        const subject = 'Set Your Password';
+
+        const {html, text} = EmailTemplateUtil.renderTemplate('user-invitation', {
+            adminEmail,
+            resetLink,
+        });
+
+        await this.sendEmail(email, subject, html, text);
+    }
+
     async send2FAResetEmail(email: string, resetToken: string, adminEmail?: string): Promise<void> {
         const resetLink = `${process.env.APP_URL}/confirm-reset-2fa?token=${resetToken}`;
         const subject = 'Reset Your Two-Factor Authentication';

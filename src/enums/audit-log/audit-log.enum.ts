@@ -3,6 +3,7 @@ export enum AuditLogEnum {
     USER_LOGIN = 'user:login',
     USER_LOGOUT = 'user:logout',
     USER_CREATED = 'user:created',
+    USER_INVITED = 'user:invited',
     USER_UPDATED = 'user:updated',
     USER_DELETED = 'user:deleted',
     USER_2FA_ATTEMPT = 'user:2fa:attempt',
@@ -15,6 +16,8 @@ export enum AuditLogEnum {
     USER_2FA_SESSION_VERIFIED = 'user:2fa:session:verified',
     USER_2FA_RESET_REQUESTED = 'user:2fa:reset:requested',
     USER_2FA_RESET = 'user:2fa:reset',
+    USER_EXPORTED = 'user:exported',
+    USER_IMPORTED = 'user:imported',
 
     // Action events
     ACTION_CREATED = 'action:created',

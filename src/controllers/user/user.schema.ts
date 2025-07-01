@@ -64,6 +64,26 @@ export const userCreateByInvitationSchema = userCreateSchema.omit({
 
 export const userUpdateSchema = userCreateSchema;
 
+export const userImportSchema = z.object({
+    name: z.string().optional().nullable(),
+    email: z.string().email(),
+    role: z.nativeEnum(UserRole).default(UserRole.user),
+});
+
+export const userExportSchema = z.object({
+    name: z.string().optional().nullable(),
+    email: z.string().email(),
+    role: z.nativeEnum(UserRole),
+    loginType: z.nativeEnum(LoginType),
+    twoFactorVerified: z.boolean(),
+    createdAt: z.date(),
+    updatedAt: z.date(),
+});
+
+export const usersImportRequestSchema = z.object({
+    users: z.array(userImportSchema).min(1, 'At least one user is required'),
+});
+
 // Password schemas
 export const changePasswordSchema = z.object({
     currentPassword: z.string().min(1, 'Current password is required'),
@@ -111,3 +131,6 @@ export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type AdminResetPasswordInput = z.infer<typeof adminResetPasswordSchema>;
 export type Reset2FAInput = z.infer<typeof reset2FASchema>;
+export type UserImportInput = z.infer<typeof userImportSchema>;
+export type UserExportInput = z.infer<typeof userExportSchema>;
+export type UsersImportRequestInput = z.infer<typeof usersImportRequestSchema>;
