@@ -13,7 +13,7 @@ export const requireOrganizationAdminGuard = async (req: Request, res: Response,
 
         const targetUser = await userRepository.getOneWhere(req.params.userId);
 
-        if (requesterUser.role === UserRole.admin || requesterUser.role === UserRole.root) {
+        if (requesterUser.role !== UserRole.admin && requesterUser.role !== UserRole.root) {
             res.status(403).json({message: 'Admin access required'});
             return;
         }

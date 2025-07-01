@@ -81,7 +81,7 @@ export class EmailService {
     }
 
     async send2FAResetEmail(email: string, resetToken: string, adminEmail?: string): Promise<void> {
-        const resetLink = `${process.env.APP_URL}/reset-2fa?token=${resetToken}`;
+        const resetLink = `${process.env.APP_URL}/confirm-reset-2fa?token=${resetToken}`;
         const subject = 'Reset Your Two-Factor Authentication';
 
         const {html, text} = EmailTemplateUtil.renderTemplate('2fa-reset', {

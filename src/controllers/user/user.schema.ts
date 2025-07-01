@@ -58,6 +58,10 @@ export const userCreateSchema = userSchema
         organizationId: true,
     });
 
+export const userCreateByInvitationSchema = userCreateSchema.omit({
+    password: true,
+});
+
 export const userUpdateSchema = userCreateSchema;
 
 // Password schemas
@@ -102,6 +106,7 @@ export type TwoFactorVerifyInput = z.infer<typeof twoFactorVerifySchema>;
 export type TwoFactorDisableInput = z.infer<typeof twoFactorDisableSchema>;
 export type UserDeviceInfo = z.infer<typeof userDeviceInfoSchema>;
 export type UserCreateInput = z.infer<typeof userCreateSchema>;
+export type UserCreateByInvitationInput = z.infer<typeof userCreateByInvitationSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type AdminResetPasswordInput = z.infer<typeof adminResetPasswordSchema>;

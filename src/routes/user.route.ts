@@ -77,7 +77,7 @@ router.post(
     isAuthenticatedGuard([PermissionEnum.USER_READ]),
     TwoFactorController.disable2FA
 );
-router.post('/admin/2fa/reset/:id', TwoFactorController.adminReset2FAForUser);
+router.post('/admin/2fa/reset/:id', userInfoMiddleware, TwoFactorController.adminReset2FAForUser);
 router.post('/2fa/reset/confirm/:token', TwoFactorController.confirm2FAReset);
 
 export default router;

@@ -350,7 +350,7 @@ export class TwoFactorController {
                 },
             });
         } catch (error: any) {
-            logger.error('Error in adminReset2FAForUser:', error);
+            logger.error('Error:', error);
             res.status(500).json({message: error.message});
         }
     };
