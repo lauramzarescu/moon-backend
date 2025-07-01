@@ -348,22 +348,6 @@ export class UserController {
                     });
                     return;
                 }
-            } else if (req.body.base64Data) {
-                // Handle legacy base64 data format
-                try {
-                    const base64Data = req.body.base64Data;
-                    const decodedData = Buffer.from(base64Data, 'base64').toString('utf8');
-                    const parsedData = JSON.parse(decodedData);
-
-                    // Validate the parsed JSON structure
-                    validatedData = usersImportRequestSchema.parse(parsedData);
-                } catch (parseError: any) {
-                    res.status(400).json({
-                        message: 'Invalid base64 JSON data format',
-                        error: parseError.message,
-                    });
-                    return;
-                }
             } else {
                 // Handle direct JSON body - support both array and object formats
                 let bodyData = req.body;
