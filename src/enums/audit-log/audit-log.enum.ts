@@ -19,6 +19,9 @@ export enum AuditLogEnum {
     USER_EXPORTED = 'user:exported',
     USER_IMPORTED = 'user:imported',
 
+    // Organization events
+    ORGANIZATION_UPDATED = 'organization:updated',
+
     // Action events
     ACTION_CREATED = 'action:created',
     ACTION_UPDATED = 'action:updated',

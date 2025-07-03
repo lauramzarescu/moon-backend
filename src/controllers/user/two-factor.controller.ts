@@ -4,10 +4,11 @@ import {OrganizationRepository} from '../../repositories/organization/organizati
 import {twoFactorDisableSchema, twoFactorVerifySchema, UserDeviceInfo} from './user.schema';
 import {prisma} from '../../config/db.config';
 import * as QRCode from 'qrcode';
-import {User} from '@prisma/client';
+import {Organization, User} from '@prisma/client';
 import {UAParser} from 'ua-parser-js';
 import moment from 'moment/moment';
 import * as speakeasy from 'speakeasy';
+import {GeneratedSecret} from 'speakeasy';
 import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 import {AuditLogHelper} from '../audit-log/audit-log.helper';
 import {AuthService} from '../../services/auth.service';
@@ -33,13 +34,13 @@ export class TwoFactorController {
     }
 
     static async is2FAVerificationNeeded(userId: string, req: express.Request): Promise<boolean> {
-        const user = await TwoFactorController.userRepository.getOne(userId);
+        const user = await this.userRepository.getOne(userId);
 
         if (!user.twoFactorSecret || !user.twoFactorVerified) {
             return false;
         }
 
-        const currentDeviceFingerprint = TwoFactorController.generateDeviceFingerprint(req);
+        const currentDeviceFingerprint = this.generateDeviceFingerprint(req);
 
         const userDevices: UserDeviceInfo[] = (user.verifiedDevices as unknown as UserDeviceInfo[]) || [];
         const deviceInfo = userDevices.find(d => d.fingerprint === currentDeviceFingerprint);
@@ -53,6 +54,37 @@ export class TwoFactorController {
         const diffDays = Math.floor((now.getTime() - lastVerified.getTime()) / (1000 * 60 * 60 * 24));
 
         return diffDays >= TWO_FACTOR_EXPIRATION_DAYS;
+    }
+
+    static async is2FASetupRequired(userId: string): Promise<boolean> {
+        const user = await this.userRepository.getOne(userId);
+        const enforce2FA = (await this.organizationRepository.getOne(user.organizationId)).enforce2FA;
+
+        return !user.twoFactorVerified && enforce2FA;
+    }
+
+    static async generateTwoFactorSetup(
+        user: User,
+        organization: Organization
+    ): Promise<{
+        qrCodeUrl: string;
+        secret: GeneratedSecret;
+    }> {
+        // Generate a new secret
+        const secret = speakeasy.generateSecret({
+            name: `MOON - ${organization.name}:${user.email}`,
+        });
+
+        // Save the secret temporarily (not verified yet)
+        await this.userRepository.update(user.id, {
+            twoFactorSecret: secret.base32,
+            twoFactorVerified: false,
+        });
+
+        // Generate QR code
+        const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url ?? '');
+
+        return {qrCodeUrl, secret};
     }
 
     private static async updateVerifiedDevices(userId: string, req: express.Request): Promise<void> {
@@ -99,23 +131,11 @@ export class TwoFactorController {
             const user = res.locals.user as User;
             const organization = await this.organizationRepository.getOne(user.organizationId);
 
-            // Generate a new secret
-            const secret = speakeasy.generateSecret({
-                name: `${organization.name}:${user.email}`,
-            });
-
-            // Save the secret temporarily (not verified yet)
-            await this.userRepository.update(user.id, {
-                twoFactorSecret: secret.base32,
-                twoFactorVerified: false,
-            });
-
-            // Generate QR code
-            const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url ?? '');
+            const _2FASetupValues = await this.generateTwoFactorSetup(user, organization);
 
             res.json({
-                secret: secret.base32,
-                qrCode: qrCodeUrl,
+                secret: _2FASetupValues.secret.base32,
+                qrCode: _2FASetupValues.qrCodeUrl,
             });
 
             await this.auditHelper.create({
@@ -202,7 +222,7 @@ export class TwoFactorController {
 
             const user = await this.userRepository.getOne(decoded.userId);
 
-            if (!user.twoFactorSecret || !user.twoFactorVerified) {
+            if (!user.twoFactorSecret) {
                 res.status(400).json({message: '2FA not set up or verified'});
                 return;
             }
@@ -218,6 +238,12 @@ export class TwoFactorController {
             if (!verified) {
                 res.status(400).json({message: 'Invalid verification code'});
                 return;
+            }
+
+            if (!user.twoFactorVerified) {
+                await this.userRepository.update(user.id, {
+                    twoFactorVerified: true,
+                });
             }
 
             await this.updateVerifiedDevices(decoded.userId, req);

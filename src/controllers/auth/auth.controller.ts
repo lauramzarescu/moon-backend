@@ -10,9 +10,11 @@ import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 import {LoginType} from '@prisma/client';
 import logger from '../../config/logger';
 import {TwoFactorController} from '../user/two-factor.controller';
+import {OrganizationRepository} from '../../repositories/organization/organization.repository';
 
 export class AuthController {
     static userRepository = new UserRepository(prisma);
+    static organizationRepository = new OrganizationRepository(prisma);
     static auditHelper = new AuditLogHelper();
 
     constructor() {}
@@ -30,6 +32,8 @@ export class AuthController {
                 return;
             }
 
+            const organization = await this.organizationRepository.getOne(user.organizationId);
+
             if (user.loginType !== LoginType.local || !user.password) {
                 res.status(401).json({error: 'Invalid login type'});
                 return;
@@ -43,6 +47,7 @@ export class AuthController {
             }
 
             const verificationRequired = await TwoFactorController.is2FAVerificationNeeded(user.id, req);
+            const is2FASetupRequired = await TwoFactorController.is2FASetupRequired(user.id);
 
             if (verificationRequired) {
                 const tempToken = AuthService.createTemporaryToken(user);
@@ -56,21 +61,45 @@ export class AuthController {
                 res.json({
                     status: 'success',
                     requires2FAVerification: true,
+                    requires2FASetup: false,
                 });
-            } else {
-                const token = AuthService.createToken(user);
 
-                res.cookie('token', token, {
+                return;
+            }
+
+            if (is2FASetupRequired) {
+                const _2FASetupValues = await TwoFactorController.generateTwoFactorSetup(user, organization);
+                const tempToken = AuthService.createTemporaryToken(user);
+
+                res.cookie('token', tempToken, {
                     secure: process.env.NODE_ENV === 'production',
                     sameSite: 'strict',
-                    expires: moment().add(24, 'h').toDate(),
+                    expires: moment().add(5, 'm').toDate(),
                 });
 
                 res.json({
                     status: 'success',
                     requires2FAVerification: false,
+                    requires2FASetup: true,
+                    qrCodeUrl: _2FASetupValues.qrCodeUrl,
                 });
+
+                return;
             }
+
+            const token = AuthService.createToken(user);
+
+            res.cookie('token', token, {
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                expires: moment().add(24, 'h').toDate(),
+            });
+
+            res.json({
+                status: 'success',
+                requires2FAVerification: false,
+                requires2FASetup: false,
+            });
 
             await this.auditHelper.create({
                 userId: user.id,

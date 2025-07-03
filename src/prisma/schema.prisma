@@ -19,6 +19,7 @@ model Organization {
   saml          SamlConfig?
   services      ServicesConfig[]
   users         User[]
+  enforce2FA    Boolean          @default(false)
 }
 
 model User {

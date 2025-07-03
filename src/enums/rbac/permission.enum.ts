@@ -4,6 +4,9 @@ export enum PermissionEnum {
     USER_WRITE = 'user:write',
     USER_DELETE = 'user:delete',
 
+    ORGANIZATION_WRITE = 'organization:write',
+    ORGANIZATION_READ = 'organization:read',
+
     SAML_CONFIGURATION_CREATE = 'saml:configuration:create',
     SAML_CONFIGURATION_READ = 'saml:configuration:read',
     SAML_CONFIGURATION_WRITE = 'saml:configuration:write',
