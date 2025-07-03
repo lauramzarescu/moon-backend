@@ -287,6 +287,12 @@ export class TwoFactorController {
                 return;
             }
 
+            const organization = await this.organizationRepository.getOne(user.organizationId);
+            if (organization.enforce2FA) {
+                res.status(400).json({message: '2FA is enforced for this organization'});
+                return;
+            }
+
             const validatedData = twoFactorDisableSchema.parse(req.body);
 
             const verified = speakeasy.totp.verify({
