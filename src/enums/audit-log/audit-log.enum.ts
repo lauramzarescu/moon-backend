@@ -3,19 +3,32 @@ export enum AuditLogEnum {
     USER_LOGIN = 'user:login',
     USER_LOGOUT = 'user:logout',
     USER_CREATED = 'user:created',
+    USER_INVITED = 'user:invited',
     USER_UPDATED = 'user:updated',
     USER_DELETED = 'user:deleted',
     USER_2FA_ATTEMPT = 'user:2fa:attempt',
     USER_2FA_ENABLED = 'user:2fa:enabled',
     USER_2FA_DISABLED = 'user:2fa:disabled',
+    USER_PASSWORD_RESET_REQUESTED = 'user:password:reset:requested',
     USER_PASSWORD_RESET = 'user:password:reset',
+    USER_PASSWORD_ADMIN_RESET = 'user:password:admin:reset',
     USER_PASSWORD_CHANGED = 'user:password:changed',
+    USER_2FA_SESSION_VERIFIED = 'user:2fa:session:verified',
+    USER_2FA_RESET_REQUESTED = 'user:2fa:reset:requested',
+    USER_2FA_RESET = 'user:2fa:reset',
+    USER_EXPORTED = 'user:exported',
+    USER_IMPORTED = 'user:imported',
+
+    // Organization events
+    ORGANIZATION_UPDATED = 'organization:updated',
 
     // Action events
     ACTION_CREATED = 'action:created',
     ACTION_UPDATED = 'action:updated',
     ACTION_DELETED = 'action:deleted',
     ACTION_EXECUTED = 'action:executed',
+    ACTION_EXPORTED = 'action:exported',
+    ACTION_IMPORTED = 'action:imported',
 
     // SAML events
     SAML_CONFIG_CREATED = 'saml:config:created',

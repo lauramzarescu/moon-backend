@@ -4,6 +4,8 @@ import {ActionRepository} from '../../repositories/action/action.repository';
 import {z} from 'zod';
 import {
     ActionDefinition,
+    actionExportSchema,
+    actionsImportRequestSchema,
     CreateActionDto,
     createActionInputSchema,
     UpdateActionDto,
@@ -377,6 +379,254 @@ export class ActionsController {
             res.status(500).json({
                 message: 'Failed to execute page refresh actions',
                 error: error,
+            });
+        }
+    };
+
+    static exportActions = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+        try {
+            const user = res.locals.user as User;
+
+            const actions = (await this.actionRepository.findMany({
+                organizationId: user.organizationId,
+            })) as ActionDefinition[];
+
+            const exportData = actions.map(action => {
+                const cleanConfig = {...(action.config as object)};
+                if ('jobId' in cleanConfig) {
+                    delete (cleanConfig as any).jobId;
+                }
+
+                return actionExportSchema.parse({
+                    name: action.name,
+                    actionType: action.actionType,
+                    triggerType: action.triggerType,
+                    config: cleanConfig,
+                    schedulerConfig: action.schedulerConfig,
+                    enabled: action.enabled,
+                    createdAt: (action as any).createdAt,
+                    updatedAt: (action as any).updatedAt,
+                });
+            });
+
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader(
+                'Content-Disposition',
+                `attachment; filename="actions-export-${new Date().toISOString().split('T')[0]}.json"`
+            );
+
+            res.json({
+                exportDate: new Date().toISOString(),
+                organizationId: user.organizationId,
+                totalActions: exportData.length,
+                actions: exportData,
+            });
+
+            await this.auditHelper.create({
+                userId: user?.id || '-',
+                organizationId: user?.organizationId || '-',
+                action: AuditLogEnum.ACTION_EXPORTED,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: user?.email || '-',
+                        description: `Exported ${exportData.length} actions`,
+                    },
+                },
+            });
+        } catch (error: any) {
+            logger.error('Error exporting actions:', error);
+            res.status(500).json({
+                message: 'Failed to export actions',
+                error: error.message,
+            });
+        }
+    };
+
+    static importActions = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+        try {
+            const user = res.locals.user as User;
+            let validatedData;
+
+            // Check if it's a file upload, base64 file object, or JSON body
+            if ((req as any).file) {
+                try {
+                    const file = (req as any).file as Express.Multer.File;
+                    const fileContent = file.buffer.toString('utf8');
+                    const parsedData = JSON.parse(fileContent);
+
+                    validatedData = actionsImportRequestSchema.parse(parsedData);
+                } catch (parseError: any) {
+                    res.status(400).json({
+                        message: 'Invalid JSON file format',
+                        error: parseError.message,
+                    });
+                    return;
+                }
+            } else if (req.body.file) {
+                try {
+                    const base64Data = req.body.file;
+                    const decodedData = Buffer.from(base64Data, 'base64').toString('utf8');
+                    const parsedData = JSON.parse(decodedData);
+
+                    let actionsData;
+                    if (Array.isArray(parsedData)) {
+                        actionsData = {actions: parsedData};
+                    } else if (parsedData.actions) {
+                        actionsData = parsedData;
+                    } else {
+                        actionsData = {actions: [parsedData]};
+                    }
+
+                    validatedData = actionsImportRequestSchema.parse(actionsData);
+                } catch (parseError: any) {
+                    res.status(400).json({
+                        message: 'Invalid base64 file data format',
+                        error: parseError.message,
+                    });
+                    return;
+                }
+            } else {
+                let bodyData = req.body;
+
+                if (Array.isArray(bodyData)) {
+                    bodyData = {actions: bodyData};
+                }
+
+                validatedData = actionsImportRequestSchema.parse(bodyData);
+            }
+
+            const results = {
+                successful: [] as any[],
+                failed: [] as any[],
+                skipped: [] as any[],
+            };
+
+            for (const actionData of validatedData.actions) {
+                try {
+                    // Check if action with same name already exists
+                    const existingActions = await this.actionRepository.findMany({
+                        organizationId: user.organizationId,
+                    });
+
+                    const existingAction = existingActions.find(
+                        (action: any) => action.name.toLowerCase() === actionData.name.toLowerCase()
+                    );
+
+                    if (existingAction) {
+                        results.skipped.push({
+                            name: actionData.name,
+                            reason: 'Action with same name already exists',
+                        });
+                        continue;
+                    }
+
+                    // Validate action configuration using the same validation as create
+                    const validatedActionData = createActionInputSchema.parse(actionData);
+
+                    // Create the action in the database
+                    let newAction = (await this.actionRepository.create({
+                        name: validatedActionData.name,
+                        actionType: validatedActionData.actionType,
+                        triggerType: validatedActionData.triggerType,
+                        config: validatedActionData.config || {},
+                        schedulerConfig: validatedActionData.schedulerConfig || null,
+                        enabled: validatedActionData.enabled,
+                        organizationId: user.organizationId,
+                    })) as unknown as ActionDefinition;
+
+                    // If it's a scheduled job and enabled, schedule it
+                    if (newAction.triggerType === TriggerType.scheduled_job && newAction.enabled) {
+                        try {
+                            const jobId = await this.jobScheduler.scheduleJob(newAction);
+
+                            // Update the action's config to include the jobId
+                            const updatedConfig = {
+                                ...(newAction.config as Object),
+                                jobId,
+                            };
+
+                            // Update the action in the database with the jobId
+                            newAction = (await this.actionRepository.update(newAction.id, {
+                                config: updatedConfig,
+                            })) as unknown as ActionDefinition;
+                        } catch (schedulerError: any) {
+                            // If scheduling fails, delete the action we just created
+                            await this.actionRepository.delete(newAction.id);
+                            logger.error('Error scheduling job after action import:', schedulerError);
+
+                            results.failed.push({
+                                name: actionData.name,
+                                reason: `Failed to schedule job: ${schedulerError.message}`,
+                            });
+                            continue;
+                        }
+                    }
+
+                    results.successful.push({
+                        name: newAction.name,
+                        actionType: newAction.actionType,
+                        triggerType: newAction.triggerType,
+                        enabled: newAction.enabled,
+                        id: newAction.id,
+                    });
+                } catch (actionError: any) {
+                    results.failed.push({
+                        name: actionData.name,
+                        reason: actionError.message,
+                    });
+                }
+            }
+
+            res.status(201).json({
+                message: 'Action import completed',
+                summary: {
+                    total: validatedData.actions.length,
+                    successful: results.successful.length,
+                    failed: results.failed.length,
+                    skipped: results.skipped.length,
+                },
+                results,
+            });
+
+            await this.auditHelper.create({
+                userId: user?.id || '-',
+                organizationId: user?.organizationId || '-',
+                action: AuditLogEnum.ACTION_IMPORTED,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: user?.email || '-',
+                        description: `Imported actions: ${results.successful.length} successful, ${results.failed.length} failed, ${results.skipped.length} skipped`,
+                        importMethod: (req as any).file
+                            ? 'multer-file'
+                            : req.body.file
+                              ? 'base64-file'
+                              : req.body.base64Data
+                                ? 'base64'
+                                : 'json',
+                        filename: req.body.filename || 'unknown',
+                        mimetype: req.body.mimetype || 'unknown',
+                        importSummary: {
+                            total: validatedData.actions.length,
+                            successful: results.successful.length,
+                            failed: results.failed.length,
+                            skipped: results.skipped.length,
+                        },
+                    },
+                },
+            });
+        } catch (error: any) {
+            if (error instanceof z.ZodError) {
+                res.status(400).json({message: 'Validation failed', details: error.flatten().fieldErrors});
+                return;
+            }
+            logger.error('Error importing actions:', error);
+            res.status(500).json({
+                message: 'Failed to import actions',
+                error: error.message,
             });
         }
     };

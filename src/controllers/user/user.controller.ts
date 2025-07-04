@@ -1,94 +1,31 @@
 import express from 'express';
 import {UserRepository} from '../../repositories/user/user.repository';
 import {
-    changePasswordSchema,
-    changePasswordWith2FASchema,
-    twoFactorDisableSchema,
-    twoFactorVerifySchema,
+    userCreateByInvitationSchema,
     userCreateSchema,
     userDetailsResponseSchema,
-    UserDeviceInfo,
+    userExportSchema,
+    usersImportRequestSchema,
     userUpdateSchema,
 } from './user.schema';
 import {AuthService} from '../../services/auth.service';
 import {UserHelper} from './helper';
 import {PaginationHandler} from '../../utils/pagination.util';
 import {prisma} from '../../config/db.config';
-import * as QRCode from 'qrcode';
-import {OrganizationRepository} from '../../repositories/organization/organization.repository';
 import bcrypt from 'bcrypt';
-import {LoginType, User} from '@prisma/client';
-import {UAParser} from 'ua-parser-js';
-import moment from 'moment/moment';
-import * as speakeasy from 'speakeasy';
+import {User} from '@prisma/client';
 import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 import {AuditLogHelper} from '../audit-log/audit-log.helper';
+import {EmailService} from '../../services/email.service';
+import crypto from 'crypto';
 import logger from '../../config/logger';
-
-const TWO_FACTOR_EXPIRATION_DAYS = 21;
+import {AuditLogRepository} from '../../repositories/audit-log/audit-log.repository';
 
 export class UserController {
     static userRepository = new UserRepository(prisma);
-    static organizationRepository = new OrganizationRepository(prisma);
+    static auditRepository = new AuditLogRepository(prisma);
     static auditHelper = new AuditLogHelper();
-
-    private static generateDeviceFingerprint(req: express.Request): string {
-        const parser = new UAParser(req.headers['user-agent']);
-        const browser = parser.getBrowser();
-        const os = parser.getOS();
-        const device = parser.getDevice();
-
-        return `${browser.name}-${browser.version}-${os.name}-${os.version}-${device.vendor || ''}-${device.model || ''}`;
-    }
-
-    static async is2FAVerificationNeeded(userId: string, req: express.Request): Promise<boolean> {
-        const user = await UserController.userRepository.getOne(userId);
-
-        if (!user.twoFactorSecret || !user.twoFactorVerified) {
-            return false;
-        }
-
-        const currentDeviceFingerprint = UserController.generateDeviceFingerprint(req);
-
-        const userDevices: UserDeviceInfo[] = (user.verifiedDevices as unknown as UserDeviceInfo[]) || [];
-        const deviceInfo = userDevices.find(d => d.fingerprint === currentDeviceFingerprint);
-
-        if (!deviceInfo) {
-            return true;
-        }
-
-        const lastVerified = new Date(deviceInfo.lastVerified);
-        const now = new Date();
-        const diffDays = Math.floor((now.getTime() - lastVerified.getTime()) / (1000 * 60 * 60 * 24));
-
-        return diffDays >= TWO_FACTOR_EXPIRATION_DAYS;
-    }
-
-    private static async updateVerifiedDevices(userId: string, req: express.Request): Promise<void> {
-        const user = await this.userRepository.getOne(userId);
-        const currentDeviceFingerprint = this.generateDeviceFingerprint(req);
-
-        const userDevices: UserDeviceInfo[] = (user.verifiedDevices as unknown as UserDeviceInfo[]) || [];
-        const deviceIndex = userDevices.findIndex(d => d.fingerprint === currentDeviceFingerprint);
-
-        const deviceInfo = {
-            fingerprint: currentDeviceFingerprint,
-            lastVerified: new Date().toISOString(),
-            userAgent: req.headers['user-agent'],
-        };
-
-        if (deviceIndex >= 0) {
-            userDevices[deviceIndex] = deviceInfo;
-        } else {
-            userDevices.push(deviceInfo);
-        }
-
-        await this.userRepository.update(userId, {
-            verifiedDevices: userDevices,
-        });
-
-        return;
-    }
+    static emailService = new EmailService();
 
     static getUserDetails = async (req: express.Request, res: express.Response) => {
         try {
@@ -106,7 +43,6 @@ export class UserController {
     static getAll = async (req: express.Request, res: express.Response) => {
         try {
             const users = await this.userRepository.getAll({role: 'asc'});
-
             res.json(users);
         } catch (error: any) {
             res.status(500).json({message: error.message});
@@ -181,6 +117,56 @@ export class UserController {
         }
     };
 
+    static createByInvitation = async (req: express.Request, res: express.Response) => {
+        try {
+            const requesterUser = res.locals.user as User;
+            const validatedData = userCreateByInvitationSchema.parse(req.body);
+
+            validatedData.organizationId = requesterUser.organizationId;
+
+            const isDuplicate = await this.userRepository.findOneWhere({
+                email: validatedData.email.toLowerCase(),
+            });
+
+            if (isDuplicate) {
+                res.status(400).json({message: 'Email already exists'});
+                return;
+            }
+
+            const user = await this.userRepository.create(validatedData);
+
+            // Generate reset token
+            const resetToken = crypto.randomBytes(32).toString('hex');
+            const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
+
+            await this.userRepository.update(user.id, {
+                resetToken,
+                resetTokenExpiry,
+            });
+
+            await this.emailService.sendInvitationEmail(user.email, requesterUser.email, resetToken);
+
+            res.status(201).json(user);
+
+            await this.auditHelper.create({
+                userId: requesterUser?.id || '-',
+                organizationId: requesterUser?.organizationId || '-',
+                action: AuditLogEnum.USER_CREATED,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: requesterUser?.email || '-',
+                        description: `User ${user.email} created`,
+                        objectNew: user,
+                    },
+                },
+            });
+        } catch (error: any) {
+            res.status(500).json({message: error.message});
+        }
+    };
+
     static update = async (req: express.Request, res: express.Response) => {
         try {
             const requesterUser = res.locals.user as User;
@@ -212,9 +198,32 @@ export class UserController {
     static delete = async (req: express.Request, res: express.Response) => {
         try {
             const requesterUser = res.locals.user as User;
-            const user = await this.userRepository.delete(req.params.id);
+            const userToDelete = await this.userRepository.getOne(req.params.id);
 
-            res.json(user);
+            // Prevent self-deletion
+            if (requesterUser.id === req.params.id) {
+                res.status(400).json({message: 'You cannot delete your own account'});
+                return;
+            }
+
+            // Ensure user belongs to same organization
+            if (userToDelete.organizationId !== requesterUser.organizationId) {
+                res.status(403).json({message: 'You can only delete users from your organization'});
+                return;
+            }
+
+            await this.auditRepository.deleteMany({userId: userToDelete.id});
+            const deletedUser = await this.userRepository.delete(req.params.id);
+
+            res.json({
+                success: true,
+                message: 'User deleted successfully',
+                user: {
+                    id: deletedUser.id,
+                    email: deletedUser.email,
+                    name: deletedUser.name,
+                },
+            });
 
             await this.auditHelper.create({
                 userId: requesterUser?.id || '-',
@@ -225,309 +234,224 @@ export class UserController {
                     info: {
                         userAgent: req.headers['user-agent'],
                         email: requesterUser?.email || '-',
-                        description: `User ${user.email} deleted`,
-                        objectOld: user,
+                        description: `User ${deletedUser.email} deleted`,
+                        objectOld: deletedUser,
                     },
                 },
             });
         } catch (error: any) {
+            logger.error(error);
             res.status(500).json({message: error.message});
         }
     };
 
-    static changePassword = async (req: express.Request, res: express.Response) => {
+    static exportUsers = async (req: express.Request, res: express.Response) => {
         try {
-            const user = res.locals.user as User;
+            const requesterUser = res.locals.user as User;
 
-            if (!user.password || user.loginType !== LoginType.local) {
-                res.status(400).json({message: 'Password change is only available for local accounts'});
-                return;
-            }
-
-            if (user.twoFactorSecret && user.twoFactorVerified) {
-                res.status(400).json({message: 'You must verify your 2FA before changing password.'});
-                return;
-            }
-
-            const validatedData = changePasswordSchema.parse(req.body);
-
-            const isPasswordValid = await bcrypt.compare(validatedData.currentPassword, user.password);
-            if (!isPasswordValid) {
-                res.status(400).json({message: 'Current password is incorrect'});
-                return;
-            }
-
-            const hashedPassword = await bcrypt.hash(validatedData.newPassword, 10);
-
-            await this.userRepository.update(user.id, {
-                password: hashedPassword,
+            // Get all users from the same organization
+            const users = await this.userRepository.findMany({
+                organizationId: requesterUser.organizationId,
             });
 
-            res.json({success: true, message: 'Password changed successfully'});
-
-            await this.auditHelper.create({
-                userId: user?.id || '-',
-                organizationId: user?.organizationId || '-',
-                action: AuditLogEnum.USER_PASSWORD_CHANGED,
-                details: {
-                    ip: (req as any).ipAddress,
-                    info: {
-                        userAgent: req.headers['user-agent'],
-                        email: user?.email || '-',
-                        description: `User ${user.email} changed password`,
-                    },
-                },
-            });
-        } catch (error: any) {
-            res.status(500).json({message: error.message});
-        }
-    };
-
-    static changePasswordWith2FA = async (req: express.Request, res: express.Response) => {
-        try {
-            const user = res.locals.user as User;
-
-            if (!user.password || user.loginType !== LoginType.local) {
-                res.status(400).json({message: 'Password change is only available for local accounts'});
-                return;
-            }
-
-            if (!user.twoFactorSecret || !user.twoFactorVerified) {
-                res.status(400).json({message: '2FA is not enabled or verified for this account'});
-                return;
-            }
-
-            const validatedData = changePasswordWith2FASchema.parse(req.body);
-            const isPasswordValid = await bcrypt.compare(validatedData.currentPassword, user.password);
-
-            if (!isPasswordValid) {
-                res.status(400).json({message: 'Current password is incorrect'});
-                return;
-            }
-
-            const verified = speakeasy.totp.verify({
-                secret: user.twoFactorSecret,
-                encoding: 'base32',
-                token: validatedData.code,
+            // Transform users to export format (excluding sensitive data)
+            const exportData = users.map(user => {
+                return userExportSchema.parse({
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    loginType: user.loginType,
+                    twoFactorVerified: user.twoFactorVerified,
+                    createdAt: user.createdAt,
+                    updatedAt: user.updatedAt,
+                });
             });
 
-            if (!verified) {
-                res.status(400).json({message: 'Invalid 2FA verification code'});
-                return;
-            }
-
-            const hashedPassword = await bcrypt.hash(validatedData.newPassword, 10);
-
-            await this.userRepository.update(user.id, {
-                password: hashedPassword,
-            });
-
-            await this.userRepository.update(user.id, {
-                verifiedDevices: [],
-            });
-
-            res.json({success: true, message: 'Password changed successfully with 2FA verification'});
-
-            await this.auditHelper.create({
-                userId: user?.id || '-',
-                organizationId: user?.organizationId || '-',
-                action: AuditLogEnum.USER_PASSWORD_CHANGED,
-                details: {
-                    ip: (req as any).ipAddress,
-                    info: {
-                        userAgent: req.headers['user-agent'],
-                        email: user?.email || '-',
-                        description: `User ${user.email} changed password`,
-                    },
-                },
-            });
-        } catch (error: any) {
-            res.status(500).json({message: error.message});
-        }
-    };
-
-    static get2FAStatus = async (req: express.Request, res: express.Response) => {
-        try {
-            const user = res.locals.user as User;
+            // Set headers for file download
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader(
+                'Content-Disposition',
+                `attachment; filename="users-export-${new Date().toISOString().split('T')[0]}.json"`
+            );
 
             res.json({
-                enabled: !!user.twoFactorSecret,
-                verified: user.twoFactorVerified,
-            });
-        } catch (error: any) {
-            res.status(500).json({message: error.message});
-        }
-    };
-
-    static setup2FA = async (req: express.Request, res: express.Response) => {
-        try {
-            const user = res.locals.user as User;
-            const organization = await this.organizationRepository.getOne(user.organizationId);
-
-            // Generate a new secret
-            const secret = speakeasy.generateSecret({
-                name: `${organization.name}:${user.email}`,
-            });
-
-            // Save the secret temporarily (not verified yet)
-            await this.userRepository.update(user.id, {
-                twoFactorSecret: secret.base32,
-                twoFactorVerified: false,
-            });
-
-            // Generate QR code
-            const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url ?? '');
-
-            res.json({
-                secret: secret.base32,
-                qrCode: qrCodeUrl,
+                exportDate: new Date().toISOString(),
+                organizationId: requesterUser.organizationId,
+                totalUsers: exportData.length,
+                users: exportData,
             });
 
             await this.auditHelper.create({
-                userId: user?.id || '-',
-                organizationId: user?.organizationId || '-',
-                action: AuditLogEnum.USER_2FA_ATTEMPT,
+                userId: requesterUser?.id || '-',
+                organizationId: requesterUser?.organizationId || '-',
+                action: AuditLogEnum.USER_EXPORTED,
                 details: {
                     ip: (req as any).ipAddress,
                     info: {
                         userAgent: req.headers['user-agent'],
-                        email: user?.email || '-',
-                        description: `User ${user.email} attempted to set up 2FA`,
+                        email: requesterUser?.email || '-',
+                        description: `Exported ${exportData.length} users`,
                     },
                 },
             });
         } catch (error: any) {
-            logger.info(error);
             res.status(500).json({message: error.message});
         }
     };
 
-    static verify2FACode = async (req: express.Request, res: express.Response) => {
+    static importUsers = async (req: express.Request, res: express.Response) => {
         try {
-            const user = res.locals.user as User;
+            const requesterUser = res.locals.user as User;
+            let validatedData;
 
-            if (!user.twoFactorSecret) {
-                res.status(400).json({message: '2FA not set up yet'});
-                return;
+            // Check if it's a file upload, base64 file object, or JSON body
+            if ((req as any).file) {
+                // Handle multer file upload
+                try {
+                    const file = (req as any).file as Express.Multer.File;
+                    const fileContent = file.buffer.toString('utf8');
+                    const parsedData = JSON.parse(fileContent);
+
+                    // Validate the parsed JSON structure
+                    validatedData = usersImportRequestSchema.parse(parsedData);
+                } catch (parseError: any) {
+                    res.status(400).json({
+                        message: 'Invalid JSON file format',
+                        error: parseError.message,
+                    });
+                    return;
+                }
+            } else if (req.body.file) {
+                // Handle base64 file object from frontend
+                try {
+                    const base64Data = req.body.file;
+                    const decodedData = Buffer.from(base64Data, 'base64').toString('utf8');
+                    const parsedData = JSON.parse(decodedData);
+
+                    // If the decoded data is a single user object, wrap it in an array
+                    let usersData;
+                    if (Array.isArray(parsedData)) {
+                        usersData = {users: parsedData};
+                    } else if (parsedData.users) {
+                        usersData = parsedData;
+                    } else {
+                        // Single user object
+                        usersData = {users: [parsedData]};
+                    }
+
+                    // Validate the parsed JSON structure
+                    validatedData = usersImportRequestSchema.parse(usersData);
+                } catch (parseError: any) {
+                    res.status(400).json({
+                        message: 'Invalid base64 file data format',
+                        error: parseError.message,
+                    });
+                    return;
+                }
+            } else {
+                // Handle direct JSON body - support both array and object formats
+                let bodyData = req.body;
+
+                // If body is an array, wrap it in the expected format
+                if (Array.isArray(bodyData)) {
+                    bodyData = {users: bodyData};
+                }
+
+                validatedData = usersImportRequestSchema.parse(bodyData);
             }
 
-            const validatedData = twoFactorVerifySchema.parse(req.body);
+            const results = {
+                successful: [] as any[],
+                failed: [] as any[],
+                skipped: [] as any[],
+            };
 
-            const verified = speakeasy.totp.verify({
-                secret: user.twoFactorSecret,
-                encoding: 'base32',
-                token: validatedData.code,
+            for (const userData of validatedData.users) {
+                try {
+                    // Check if user already exists
+                    const existingUser = await this.userRepository.findOneWhere({
+                        email: userData.email.toLowerCase(),
+                    });
+
+                    if (existingUser) {
+                        results.skipped.push({
+                            email: userData.email,
+                            reason: 'Email already exists',
+                        });
+                        continue;
+                    }
+
+                    // Create user without password
+                    const newUser = await this.userRepository.create({
+                        name: userData.name,
+                        email: userData.email.toLowerCase(),
+                        role: userData.role,
+                        organizationId: requesterUser.organizationId,
+                        // No password set - user will need to set it via invitation
+                    });
+
+                    // Generate reset token for password setup
+                    const resetToken = crypto.randomBytes(32).toString('hex');
+                    const resetTokenExpiry = new Date(Date.now() + 7 * 24 * 3600000); // 7 days for imports
+
+                    await this.userRepository.update(newUser.id, {
+                        resetToken,
+                        resetTokenExpiry,
+                    });
+
+                    // Send invitation email
+                    await this.emailService.sendInvitationEmail(newUser.email, requesterUser.email, resetToken);
+
+                    results.successful.push({
+                        email: newUser.email,
+                        name: newUser.name,
+                        role: newUser.role,
+                        id: newUser.id,
+                    });
+                } catch (userError: any) {
+                    results.failed.push({
+                        email: userData.email,
+                        reason: userError.message,
+                    });
+                }
+            }
+
+            res.status(201).json({
+                message: 'User import completed',
+                summary: {
+                    total: validatedData.users.length,
+                    successful: results.successful.length,
+                    failed: results.failed.length,
+                    skipped: results.skipped.length,
+                },
+                results,
             });
-
-            if (!verified) {
-                res.status(400).json({message: 'Invalid verification code'});
-                return;
-            }
-
-            await this.userRepository.update(user.id, {
-                twoFactorVerified: true,
-            });
-
-            await this.updateVerifiedDevices(user.id, req);
-
-            res.json({success: true, message: '2FA verification successful'});
-        } catch (error: any) {
-            res.status(500).json({message: error.message});
-        }
-    };
-
-    static verifySession2FA = async (req: express.Request, res: express.Response) => {
-        try {
-            const tempToken = req.headers.authorization;
-            if (!tempToken) {
-                res.status(400).json({message: 'No temporary token provided'});
-                return;
-            }
-
-            const decoded = AuthService.decodeToken(tempToken);
-
-            if (!decoded.temp) {
-                res.status(400).json({message: 'Invalid token type'});
-                return;
-            }
-
-            const user = await this.userRepository.getOne(decoded.userId);
-
-            if (!user.twoFactorSecret || !user.twoFactorVerified) {
-                res.status(400).json({message: '2FA not set up or verified'});
-                return;
-            }
-
-            const validatedData = twoFactorVerifySchema.parse(req.body);
-
-            const verified = speakeasy.totp.verify({
-                secret: user.twoFactorSecret,
-                encoding: 'base32',
-                token: validatedData.code,
-            });
-
-            if (!verified) {
-                res.status(400).json({message: 'Invalid verification code'});
-                return;
-            }
-            await this.updateVerifiedDevices(decoded.userId, req);
-            const fullToken = AuthService.createToken(user);
-
-            res.cookie('token', fullToken, {
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'strict',
-                expires: moment().add(24, 'h').toDate(),
-            });
-
-            res.json({
-                success: true,
-                message: '2FA session verification successful',
-            });
-        } catch (error: any) {
-            res.status(500).json({message: error.message});
-        }
-    };
-
-    static disable2FA = async (req: express.Request, res: express.Response) => {
-        try {
-            const user = res.locals.user as User;
-
-            if (!user.twoFactorSecret) {
-                res.status(400).json({message: '2FA is not enabled'});
-                return;
-            }
-
-            const validatedData = twoFactorDisableSchema.parse(req.body);
-
-            const verified = speakeasy.totp.verify({
-                secret: user.twoFactorSecret,
-                encoding: 'base32',
-                token: validatedData.code,
-            });
-
-            if (!verified) {
-                res.status(400).json({message: 'Invalid verification code'});
-                return;
-            }
-
-            await this.userRepository.update(user.id, {
-                twoFactorSecret: null,
-                twoFactorVerified: false,
-                verifiedDevices: [],
-            });
-
-            res.json({success: true, message: '2FA has been disabled'});
 
             await this.auditHelper.create({
-                userId: user?.id || '-',
-                organizationId: user?.organizationId || '-',
-                action: AuditLogEnum.USER_2FA_DISABLED,
+                userId: requesterUser?.id || '-',
+                organizationId: requesterUser?.organizationId || '-',
+                action: AuditLogEnum.USER_IMPORTED,
                 details: {
                     ip: (req as any).ipAddress,
                     info: {
                         userAgent: req.headers['user-agent'],
-                        email: user?.email || '-',
-                        description: `User ${user.email} disabled 2FA`,
+                        email: requesterUser?.email || '-',
+                        description: `Imported users: ${results.successful.length} successful, ${results.failed.length} failed, ${results.skipped.length} skipped`,
+                        importMethod: (req as any).file
+                            ? 'multer-file'
+                            : req.body.file
+                              ? 'base64-file'
+                              : req.body.base64Data
+                                ? 'base64'
+                                : 'json',
+                        filename: req.body.filename || 'unknown',
+                        mimetype: req.body.mimetype || 'unknown',
+                        importSummary: {
+                            total: validatedData.users.length,
+                            successful: results.successful.length,
+                            failed: results.failed.length,
+                            skipped: results.skipped.length,
+                        },
                     },
                 },
             });
