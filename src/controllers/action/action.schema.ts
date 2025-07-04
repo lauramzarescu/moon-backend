@@ -157,6 +157,54 @@ export type UpdateActionDto = z.infer<typeof updateActionInputSchema>;
 const listActionsSchema = z.object(baseActionDefinitionSchema.shape);
 export type ListActionsDto = z.infer<typeof listActionsSchema>;
 
+export const actionExportSchema = z.object({
+    name: z.string(),
+    actionType: actionTypeSchema,
+    triggerType: triggerTypeSchema,
+    config: z.record(z.string(), z.unknown()),
+    schedulerConfig: scheduledJobConfigSchema.optional().nullable(),
+    enabled: z.boolean(),
+    createdAt: z.date().optional(),
+    updatedAt: z.date().optional(),
+});
+export type ActionExportDto = z.infer<typeof actionExportSchema>;
+
+export const actionImportSchema = z.object({
+    name: z.string().min(1, 'Action name is required'),
+    actionType: actionTypeSchema,
+    triggerType: triggerTypeSchema,
+    config: z.record(z.string(), z.unknown()),
+    schedulerConfig: scheduledJobConfigSchema.optional().nullable(),
+    enabled: z.boolean().default(true),
+});
+export type ActionImportDto = z.infer<typeof actionImportSchema>;
+
+export const actionsImportRequestSchema = z.object({
+    actions: z.array(actionImportSchema).min(1, 'At least one action is required'),
+});
+export type ActionsImportRequestDto = z.infer<typeof actionsImportRequestSchema>;
+
+export const actionsImportResponseSchema = z.object({
+    message: z.string(),
+    summary: z.object({
+        total: z.number(),
+        successful: z.number(),
+        failed: z.number(),
+        skipped: z.number(),
+        results: z.object({
+            successful: z.array(actionExportSchema),
+            failed: z.array(z.object({name: z.string(), error: z.string()})),
+            skipped: z.array(
+                z.object({
+                    name: z.string(),
+                    reason: z.string(),
+                })
+            ),
+        }),
+    }),
+});
+export type ActionsImportResponseDto = z.infer<typeof actionsImportResponseSchema>;
+
 export const actionTypeLabels: Record<ActionType, string> = {
     add_inbound_rule: 'Add Inbound Security Group Rule',
     remove_inbound_rule: 'Remove Inbound Security Group Rule',

@@ -27,6 +27,8 @@ export enum AuditLogEnum {
     ACTION_UPDATED = 'action:updated',
     ACTION_DELETED = 'action:deleted',
     ACTION_EXECUTED = 'action:executed',
+    ACTION_EXPORTED = 'action:exported',
+    ACTION_IMPORTED = 'action:imported',
 
     // SAML events
     SAML_CONFIG_CREATED = 'saml:config:created',
