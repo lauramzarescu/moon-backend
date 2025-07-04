@@ -30,7 +30,6 @@ export class ActionsController {
     private constructor() {}
 
     static list = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-        console.log('=========== GET ALL ACTIONS ===========');
         try {
             const user = res.locals.user as User;
             const actions = (await this.actionRepository.findMany({
@@ -44,7 +43,7 @@ export class ActionsController {
                     );
                 }
             }
-            console.log('=========== GET ALL ACTIONS RESULT ===========', actions.length);
+
             res.json(actions);
         } catch (error: any) {
             logger.error('Error listing actions:', error);
