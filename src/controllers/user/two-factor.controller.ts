@@ -246,7 +246,7 @@ export class TwoFactorController {
                 });
             }
 
-            await this.updateVerifiedDevices(decoded.userId, req);
+            await this.updateVerifiedDevices(user.id, req);
             const fullToken = AuthService.createToken(user);
 
             res.cookie('token', fullToken, {
