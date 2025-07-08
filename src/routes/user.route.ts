@@ -28,6 +28,12 @@ const upload = multer({
 router.get('/', isAuthenticatedGuard([PermissionEnum.USER_READ]), UserController.getAll);
 router.get('/me', userInfoMiddleware, isAuthenticatedGuard([PermissionEnum.USER_READ]), UserController.getUserDetails);
 router.get(
+    '/devices',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    UserController.getAuthorizedDevices
+);
+router.get(
     '/:id',
     isAuthenticatedGuard([PermissionEnum.USER_READ]),
     requireOrganizationAdminGuard,
@@ -47,6 +53,13 @@ router.delete(
     isAuthenticatedGuard([PermissionEnum.USER_DELETE]),
     requireOrganizationAdminGuard,
     UserController.delete
+);
+router.delete(
+    '/devices/:id',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    requireOrganizationAdminGuard,
+    UserController.removeAuthorizedDevice
 );
 
 // Import/Export routes
