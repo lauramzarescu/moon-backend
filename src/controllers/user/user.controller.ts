@@ -152,13 +152,13 @@ export class UserController {
             await this.auditHelper.create({
                 userId: requesterUser?.id || '-',
                 organizationId: requesterUser?.organizationId || '-',
-                action: AuditLogEnum.USER_CREATED,
+                action: AuditLogEnum.USER_INVITED,
                 details: {
                     ip: (req as any).ipAddress,
                     info: {
                         userAgent: req.headers['user-agent'],
                         email: requesterUser?.email || '-',
-                        description: `User ${user.email} created`,
+                        description: `User ${user.email} invited`,
                         objectNew: user,
                     },
                 },
@@ -263,6 +263,20 @@ export class UserController {
             const deviceId = req.params.id;
 
             await TwoFactorHelper.removeAuthorizedDevice(requesterUser.id, deviceId);
+
+            await this.auditHelper.create({
+                userId: requesterUser?.id || '-',
+                organizationId: requesterUser?.organizationId || '-',
+                action: AuditLogEnum.USER_AUTHORIZED_DEVICE_REMOVED,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: requesterUser?.email || '-',
+                        description: `User ${requesterUser.email} removed authorized device ${deviceId}`,
+                    },
+                },
+            });
 
             res.status(200).json({success: true, message: 'Device removed successfully'});
         } catch (error: any) {

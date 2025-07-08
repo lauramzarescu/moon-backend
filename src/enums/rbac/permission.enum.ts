@@ -17,6 +17,8 @@ export enum PermissionEnum {
     ACTIONS_WRITE = 'actions:write',
     ACTIONS_DELETE = 'actions:delete',
 
+    AUDIT_LOG_READ = 'audit_log:read',
+
     ACCESS_CONTROL_CREATE = 'access_control:create',
     ACCESS_CONTROL_READ = 'access_control:read',
     ACCESS_CONTROL_WRITE = 'access_control:write',

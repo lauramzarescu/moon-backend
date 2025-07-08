@@ -40,6 +40,11 @@ const dbFieldMapping: ModelFieldMapping = {
         name: {field: 'name', type: 'string'},
         domain: {field: 'domain', type: 'string'},
     },
+    auditLog: {
+        action: {field: 'action', type: 'string'},
+        userId: {field: 'userId', type: 'string'},
+        organizationId: {field: 'organizationId', type: 'string'},
+    },
 };
 
 export class PaginationHandler {

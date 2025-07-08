@@ -7,6 +7,7 @@ export const RolePermissions: Record<UserRole, PermissionEnum[] | '*'> = {
     user: [
         PermissionEnum.USER_READ,
         PermissionEnum.ORGANIZATION_READ,
+        PermissionEnum.AUDIT_LOG_READ,
         PermissionEnum.SAML_CONFIGURATION_READ,
         PermissionEnum.ACCESS_CONTROL_READ,
         PermissionEnum.AWS_CLUSTER_READ,
