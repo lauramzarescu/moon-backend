@@ -1,22 +1,52 @@
 import express from 'express';
-import {createAuditLogSchema} from './audit-log.schema';
+import {AuditLog} from './audit-log.schema';
 import {AuditLogHelper} from './audit-log.helper';
 import logger from '../../config/logger';
+import {AuditLogRepository} from '../../repositories/audit-log/audit-log.repository';
+import {prisma} from '../../config/db.config';
+import {User, UserRole} from '@prisma/client';
+import {PaginationHandler} from '../../utils/pagination.util';
 
 export class AuditLogController {
-    private readonly auditHelper = new AuditLogHelper();
+    static readonly auditHelper = new AuditLogHelper();
+    static readonly auditRepository = new AuditLogRepository(prisma);
 
     constructor() {}
 
-    public async create(req: express.Request, res: express.Response, next: express.NextFunction) {
+    static async list(req: express.Request, res: express.Response, next: express.NextFunction) {
         try {
-            const validatedData = createAuditLogSchema.parse(req.body);
-            const newAuditLog = await this.auditHelper.create(validatedData);
+            const requesterUser = res.locals.user as User;
+            const condition =
+                requesterUser.role === UserRole.user
+                    ? {userId: requesterUser.id}
+                    : {organizationId: requesterUser.organizationId};
 
-            res.status(201).json(newAuditLog);
+            const auditLogs = (await this.auditRepository.getMany(condition)) as AuditLog[];
+
+            res.status(200).json(auditLogs);
         } catch (error: any) {
-            logger.error('Error creating audit log:', error);
-            res.status(500).json({error: 'Create audit log failed'});
+            logger.error('Error listing audit logs:', error);
+            res.status(500).json({error: 'List audit logs failed'});
         }
     }
+
+    static getAllPaginated = async (req: express.Request, res: express.Response) => {
+        try {
+            const requesterUser = res.locals.user as User;
+            const filters = PaginationHandler.translateFilters(req.query, 'auditLog');
+
+            const paginatedUsers = await this.auditHelper.getAuthorizedPaginated(requesterUser, {
+                page: Number(req.query.page) || 1,
+                limit: Number(req.query.limit) || 50,
+                filters,
+                orderBy: String(req.query.orderBy || 'createdAt'),
+                order: (req.query.order as 'asc' | 'desc') || 'desc',
+            });
+
+            res.json(paginatedUsers);
+        } catch (error: any) {
+            console.log(error);
+            res.status(500).json({message: error.message});
+        }
+    };
 }

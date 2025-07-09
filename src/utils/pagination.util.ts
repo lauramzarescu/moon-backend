@@ -18,13 +18,14 @@ export interface PaginatedResult<T> {
     };
 }
 
-type FieldType = 'string' | 'number' | 'boolean' | 'date';
+type FieldType = 'string' | 'number' | 'boolean' | 'date' | 'json';
 
 type ModelFieldMapping = {
     [model: string]: {
         [key: string]: {
             field: string;
             type: FieldType;
+            jsonPath?: string;
         };
     };
 };
@@ -39,6 +40,12 @@ const dbFieldMapping: ModelFieldMapping = {
     organization: {
         name: {field: 'name', type: 'string'},
         domain: {field: 'domain', type: 'string'},
+    },
+    auditLog: {
+        action: {field: 'action', type: 'string'},
+        userId: {field: 'userId', type: 'string'},
+        organizationId: {field: 'organizationId', type: 'string'},
+        userEmail: {field: 'details', type: 'json', jsonPath: 'info.email'},
     },
 };
 
@@ -91,7 +98,18 @@ export class PaginationHandler {
 
                 if (mappingConfig) {
                     const value = queryParams[param];
-                    filters[mappingConfig.field] = this.convertValueToType(value, mappingConfig.type);
+
+                    if (mappingConfig.type === 'json' && mappingConfig.jsonPath) {
+                        const dbField = mappingConfig.field;
+                        const jsonPathArray = mappingConfig.jsonPath.split('.');
+
+                        filters[dbField] = {
+                            path: jsonPathArray,
+                            string_contains: this.convertValueToType(value, 'string'),
+                        };
+                    } else {
+                        filters[mappingConfig.field] = this.convertValueToType(value, mappingConfig.type);
+                    }
                 }
             }
         });
@@ -107,6 +125,7 @@ export class PaginationHandler {
                 return value.toLowerCase() === 'true';
             case 'date':
                 return new Date(value);
+            case 'json':
             case 'string':
             default:
                 return value;

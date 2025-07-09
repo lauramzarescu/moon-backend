@@ -8,7 +8,12 @@ export const auditLogSchema = z.object({
     action: z.nativeEnum(AuditLogEnum),
     details: z.object({
         ip: z.string().default('-').optional(),
-        info: z.record(z.string(), z.unknown()).optional(),
+        info: z
+            .object({
+                email: z.string().email().optional(),
+            })
+            .and(z.record(z.string(), z.unknown()))
+            .optional(),
     }),
     createdAt: z.date().default(() => new Date()),
     updatedAt: z.date().default(() => new Date()),

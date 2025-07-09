@@ -9,8 +9,8 @@ import {AuditLogHelper} from '../audit-log/audit-log.helper';
 import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 import {LoginType} from '@prisma/client';
 import logger from '../../config/logger';
-import {TwoFactorController} from '../user/two-factor.controller';
 import {OrganizationRepository} from '../../repositories/organization/organization.repository';
+import {TwoFactorHelper} from '../user/two-factor.helper';
 
 export class AuthController {
     static userRepository = new UserRepository(prisma);
@@ -46,8 +46,8 @@ export class AuthController {
                 return;
             }
 
-            const verificationRequired = await TwoFactorController.is2FAVerificationNeeded(user.id, req);
-            const is2FASetupRequired = await TwoFactorController.is2FASetupRequired(user.id);
+            const verificationRequired = await TwoFactorHelper.is2FAVerificationNeeded(user.id, req);
+            const is2FASetupRequired = await TwoFactorHelper.is2FASetupRequired(user.id);
 
             if (verificationRequired) {
                 const tempToken = AuthService.createTemporaryToken(user);
@@ -68,7 +68,7 @@ export class AuthController {
             }
 
             if (is2FASetupRequired) {
-                const _2FASetupValues = await TwoFactorController.generateTwoFactorSetup(user, organization);
+                const _2FASetupValues = await TwoFactorHelper.generateTwoFactorSetup(user, organization);
                 const tempToken = AuthService.createTemporaryToken(user);
 
                 res.cookie('token', tempToken, {

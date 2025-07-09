@@ -20,6 +20,7 @@ import {EmailService} from '../../services/email.service';
 import crypto from 'crypto';
 import logger from '../../config/logger';
 import {AuditLogRepository} from '../../repositories/audit-log/audit-log.repository';
+import {TwoFactorHelper} from './two-factor.helper';
 
 export class UserController {
     static userRepository = new UserRepository(prisma);
@@ -151,13 +152,13 @@ export class UserController {
             await this.auditHelper.create({
                 userId: requesterUser?.id || '-',
                 organizationId: requesterUser?.organizationId || '-',
-                action: AuditLogEnum.USER_CREATED,
+                action: AuditLogEnum.USER_INVITED,
                 details: {
                     ip: (req as any).ipAddress,
                     info: {
                         userAgent: req.headers['user-agent'],
                         email: requesterUser?.email || '-',
-                        description: `User ${user.email} created`,
+                        description: `User ${user.email} invited`,
                         objectNew: user,
                     },
                 },
@@ -239,6 +240,45 @@ export class UserController {
                     },
                 },
             });
+        } catch (error: any) {
+            logger.error(error);
+            res.status(500).json({message: error.message});
+        }
+    };
+
+    static getAuthorizedDevices = async (req: express.Request, res: express.Response) => {
+        try {
+            const requesterUser = res.locals.user as User;
+
+            res.status(200).json(requesterUser.verifiedDevices);
+        } catch (error: any) {
+            logger.error(error);
+            res.status(500).json({message: error.message});
+        }
+    };
+
+    static removeAuthorizedDevice = async (req: express.Request, res: express.Response) => {
+        try {
+            const requesterUser = res.locals.user as User;
+            const deviceId = req.params.id;
+
+            await TwoFactorHelper.removeAuthorizedDevice(requesterUser.id, deviceId);
+
+            await this.auditHelper.create({
+                userId: requesterUser?.id || '-',
+                organizationId: requesterUser?.organizationId || '-',
+                action: AuditLogEnum.USER_AUTHORIZED_DEVICE_REMOVED,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: requesterUser?.email || '-',
+                        description: `User ${requesterUser.email} removed authorized device ${deviceId}`,
+                    },
+                },
+            });
+
+            res.status(200).json({success: true, message: 'Device removed successfully'});
         } catch (error: any) {
             logger.error(error);
             res.status(500).json({message: error.message});

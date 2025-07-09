@@ -1,4 +1,4 @@
-import {TriggerType} from '@prisma/client';
+import {TriggerType, User, UserRole} from '@prisma/client';
 import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 import {ActionRepository} from '../../repositories/action/action.repository';
 import {prisma} from '../../config/db.config';
@@ -7,6 +7,7 @@ import {ActionHelper} from '../action/action.helper';
 import {CreateAuditLog} from './audit-log.schema';
 import {AuditLogRepository} from '../../repositories/audit-log/audit-log.repository';
 import logger from '../../config/logger';
+import {PaginationParams} from '../../utils/pagination.util';
 
 export class AuditLogHelper {
     private readonly actionHelper = new ActionHelper();
@@ -30,6 +31,16 @@ export class AuditLogHelper {
             logger.error('Error creating audit log:', error);
             throw new Error('Failed to create audit log');
         }
+    }
+
+    public async getAuthorizedPaginated(requesterUser: User, params: PaginationParams) {
+        if (requesterUser.role === UserRole.user) {
+            return this.auditLogRepository.getPaginated(params, {userId: requesterUser.id});
+        }
+
+        return this.auditLogRepository.getPaginated(params, {
+            organizationId: requesterUser.organizationId,
+        });
     }
 
     public async handleAuditEvent(data: CreateAuditLog): Promise<void> {

@@ -2,6 +2,7 @@ import {z} from 'zod';
 import {LoginType, UserRole} from '@prisma/client';
 
 export const userDeviceInfoSchema = z.object({
+    id: z.string(),
     fingerprint: z.string(),
     lastVerified: z.string(),
     userAgent: z.string().optional(),
