@@ -45,6 +45,7 @@ export class AuditLogController {
 
             res.json(paginatedUsers);
         } catch (error: any) {
+            console.log(error);
             res.status(500).json({message: error.message});
         }
     };
