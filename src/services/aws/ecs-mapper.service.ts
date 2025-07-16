@@ -12,7 +12,7 @@ export class ECSMapperService {
         clusterName: string
     ): ServiceInterface {
         // TODO: Make this more dynamic based on settings later on
-        const isClusterProduction = clusterName.toLowerCase().includes('test');
+        const isClusterProduction = clusterName.toLowerCase().includes('prod');
 
         return {
             name: service.serviceName ?? 'N/A',
