@@ -18,6 +18,7 @@ const generateScheduledTask = (index: number): ScheduledTaskInterface => ({
 const generateService = (index: number): ServiceInterface => ({
     name: `service-${index}`,
     clusterName: `cluster-${index}`,
+    isClusterProduction: Math.random() > 0.5,
     desiredCount: Math.floor(Math.random() * 5) + 1,
     runningCount: Math.floor(Math.random() * 5) + 1,
     pendingCount: Math.floor(Math.random() * 2),

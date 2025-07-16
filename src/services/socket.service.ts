@@ -36,12 +36,10 @@ export class SocketDetailsService {
         return this.instance;
     }
 
-    // Helper method to get client info for responses
     private getClientInfo(socket: AuthenticatedSocket): ClientInfoResponse {
         return getClientInfoResponse(socket.userId);
     }
 
-    // Original method for backward compatibility
     public async generateClusterDetails(socket: AuthenticatedSocket): Promise<void> {
         logger.info('[INFO] Generating cluster details (legacy mode)');
         const cachedData = SocketDetailsService.cache.get(AWS_DATA_CACHE_KEY);
@@ -208,7 +206,6 @@ export class SocketDetailsService {
 
                 socket.emit(SOCKET_EVENTS.CLUSTER_SERVICES_UPDATE, response);
 
-                // Small delay to prevent overwhelming the client
                 await new Promise(resolve => setTimeout(resolve, 100));
             } catch (error: any) {
                 logger.error(`[ERROR] Failed to load services for cluster ${cluster.name}:`, error);
@@ -222,7 +219,6 @@ export class SocketDetailsService {
             }
         });
 
-        // Process clusters in parallel but with controlled concurrency
         const concurrencyLimit = 3;
         for (let i = 0; i < clusterPromises.length; i += concurrencyLimit) {
             const batch = clusterPromises.slice(i, i + concurrencyLimit);
@@ -254,7 +250,6 @@ export class SocketDetailsService {
 
                 socket.emit(SOCKET_EVENTS.CLUSTER_SCHEDULED_TASKS_UPDATE, response);
 
-                // Small delay to prevent overwhelming the client
                 await new Promise(resolve => setTimeout(resolve, 100));
             } catch (error: any) {
                 logger.error(`[ERROR] Failed to load scheduled tasks for cluster ${cluster.name}:`, error);
@@ -268,7 +263,6 @@ export class SocketDetailsService {
             }
         });
 
-        // Process clusters in parallel but with controlled concurrency
         const concurrencyLimit = 3;
         for (let i = 0; i < clusterPromises.length; i += concurrencyLimit) {
             const batch = clusterPromises.slice(i, i + concurrencyLimit);

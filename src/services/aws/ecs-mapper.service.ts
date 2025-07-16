@@ -11,9 +11,13 @@ export class ECSMapperService {
         taskResponse: DescribeTaskDefinitionCommandOutput,
         clusterName: string
     ): ServiceInterface {
+        // TODO: Make this more dynamic based on settings later on
+        const isClusterProduction = clusterName.toLowerCase().includes('test');
+
         return {
             name: service.serviceName ?? 'N/A',
             clusterName: clusterName,
+            isClusterProduction,
             desiredCount: service.desiredCount ?? 0,
             runningCount: service.runningCount ?? 0,
             pendingCount: service.pendingCount ?? 0,
