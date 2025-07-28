@@ -1,11 +1,19 @@
 import {z} from 'zod';
-import {LoginType, UserRole} from '@prisma/client';
+import {LoginType, TwoFactorMethod, UserRole} from '@prisma/client';
 
 export const userDeviceInfoSchema = z.object({
     id: z.string(),
     fingerprint: z.string(),
     lastVerified: z.string(),
     userAgent: z.string().optional(),
+});
+
+export const yubikeyInfoSchema = z.object({
+    id: z.string(),
+    publicId: z.string(),
+    nickname: z.string().optional(),
+    createdAt: z.string(),
+    lastUsed: z.string().optional(),
 });
 
 export const userSchema = z.object({
@@ -21,6 +29,8 @@ export const userSchema = z.object({
     sessionIndex: z.string().optional().nullable(),
     twoFactorSecret: z.string().optional().nullable(),
     twoFactorVerified: z.boolean().default(false),
+    twoFactorMethod: z.nativeEnum(TwoFactorMethod).optional().nullable(),
+    yubikeys: z.array(yubikeyInfoSchema).optional(),
     verifiedDevices: z.array(userDeviceInfoSchema).optional(),
     resetToken: z.string().optional().nullable(),
     resetTokenExpiry: z.date().optional().nullable(),
@@ -94,7 +104,22 @@ export const changePasswordSchema = z.object({
 export const changePasswordWith2FASchema = z.object({
     currentPassword: z.string().min(1, 'Current password is required'),
     newPassword: z.string().min(8, 'New password must be at least 8 characters'),
-    code: z.string().length(6, '2FA code must be 6 digits'),
+    code: z
+        .string()
+        .min(6, 'Code must be at least 6 characters')
+        .max(48, 'Code must be at most 48 characters')
+        .refine(
+            code => {
+                // TOTP codes are exactly 6 digits
+                const isTOTP = /^\d{6}$/.test(code);
+                // YubiKey OTPs are 32-48 characters, alphanumeric (modhex format)
+                const isYubikey = /^[cbdefghijklnrtuv]{32,48}$/.test(code);
+                return isTOTP || isYubikey;
+            },
+            {
+                message: 'Code must be either a 6-digit TOTP code or a valid YubiKey OTP',
+            }
+        ),
 });
 
 export const forgotPasswordSchema = z.object({
@@ -112,7 +137,22 @@ export const adminResetPasswordSchema = z.object({
 
 // 2FA schemas
 export const twoFactorVerifySchema = z.object({
-    code: z.string().min(6).max(6),
+    code: z
+        .string()
+        .min(6, 'Code must be at least 6 characters')
+        .max(48, 'Code must be at most 48 characters')
+        .refine(
+            code => {
+                // TOTP codes are exactly 6 digits
+                const isTOTP = /^\d{6}$/.test(code);
+                // YubiKey OTPs are 32-48 characters, alphanumeric (modhex format)
+                const isYubikey = /^[cbdefghijklnrtuv]{32,48}$/.test(code);
+                return isTOTP || isYubikey;
+            },
+            {
+                message: 'Code must be either a 6-digit TOTP code or a valid YubiKey OTP',
+            }
+        ),
 });
 
 export const twoFactorDisableSchema = twoFactorVerifySchema;
@@ -121,11 +161,35 @@ export const reset2FASchema = z.object({
     email: z.string().email('Valid email is required'),
 });
 
-// Type exports
+export const yubikeySetupSchema = z.object({
+    otp: z.string().min(32).max(48),
+    nickname: z.string().optional(),
+});
+
+export const yubikeySetupResponseSchema = z.object({
+    success: z.boolean(),
+    yubikeyId: z.string(),
+    publicId: z.string(),
+});
+
+export const yubikeyVerifySchema = z.object({
+    otp: z.string().min(32).max(48),
+});
+
+export const twoFactorMethodSelectSchema = z.object({
+    method: z.nativeEnum(TwoFactorMethod),
+});
+
+export const yubikeyUpdateSchema = z.object({
+    yubikeyId: z.string(),
+    nickname: z.string().optional(),
+});
+
 export type UserInput = z.infer<typeof userSchema>;
 export type TwoFactorVerifyInput = z.infer<typeof twoFactorVerifySchema>;
 export type TwoFactorDisableInput = z.infer<typeof twoFactorDisableSchema>;
 export type UserDeviceInfo = z.infer<typeof userDeviceInfoSchema>;
+export type YubikeyInfo = z.infer<typeof yubikeyInfoSchema>;
 export type UserCreateInput = z.infer<typeof userCreateSchema>;
 export type UserCreateByInvitationInput = z.infer<typeof userCreateByInvitationSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
@@ -134,4 +198,8 @@ export type AdminResetPasswordInput = z.infer<typeof adminResetPasswordSchema>;
 export type Reset2FAInput = z.infer<typeof reset2FASchema>;
 export type UserImportInput = z.infer<typeof userImportSchema>;
 export type UserExportInput = z.infer<typeof userExportSchema>;
-export type UsersImportRequestInput = z.infer<typeof usersImportRequestSchema>;
+export type YubikeySetupInput = z.infer<typeof yubikeySetupSchema>;
+export type YubikeySetupResponse = z.infer<typeof yubikeySetupResponseSchema>;
+export type YubikeyVerifyInput = z.infer<typeof yubikeyVerifySchema>;
+export type TwoFactorMethodSelectInput = z.infer<typeof twoFactorMethodSelectSchema>;
+export type YubikeyUpdateInput = z.infer<typeof yubikeyUpdateSchema>;

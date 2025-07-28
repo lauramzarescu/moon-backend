@@ -80,6 +80,12 @@ router.post(
 );
 
 // Password management routes
+router.get(
+    '/change-password/2fa-status',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    PasswordController.getPasswordChange2FAStatus
+);
 router.post(
     '/change-password',
     userInfoMiddleware,
@@ -130,5 +136,37 @@ router.post(
 );
 router.post('/admin/2fa/reset/:id', userInfoMiddleware, TwoFactorController.adminReset2FAForUser);
 router.post('/2fa/reset/confirm/:token', TwoFactorController.confirm2FAReset);
+
+router.post(
+    '/2fa/yubikey/setup',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    TwoFactorController.setupYubikey
+);
+router.post('/2fa/yubikey/verify', TwoFactorController.verifyYubikey);
+router.get(
+    '/2fa/yubikey/list',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    TwoFactorController.getUserYubikeys
+);
+router.delete(
+    '/2fa/yubikey/:id',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    TwoFactorController.removeYubikey
+);
+router.put(
+    '/2fa/yubikey/update',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    TwoFactorController.updateYubikey
+);
+router.post(
+    '/2fa/method',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    TwoFactorController.setTwoFactorMethod
+);
 
 export default router;

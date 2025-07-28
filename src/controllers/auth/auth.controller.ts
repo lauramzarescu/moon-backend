@@ -49,24 +49,6 @@ export class AuthController {
             const verificationRequired = await TwoFactorHelper.is2FAVerificationNeeded(user.id, req);
             const is2FASetupRequired = await TwoFactorHelper.is2FASetupRequired(user.id);
 
-            if (verificationRequired) {
-                const tempToken = AuthService.createTemporaryToken(user);
-
-                res.cookie('token', tempToken, {
-                    secure: process.env.NODE_ENV === 'production',
-                    sameSite: 'strict',
-                    expires: moment().add(5, 'm').toDate(),
-                });
-
-                res.json({
-                    status: 'success',
-                    requires2FAVerification: true,
-                    requires2FASetup: false,
-                });
-
-                return;
-            }
-
             if (is2FASetupRequired) {
                 const _2FASetupValues = await TwoFactorHelper.generateTwoFactorSetup(user, organization);
                 const tempToken = AuthService.createTemporaryToken(user);
@@ -82,6 +64,31 @@ export class AuthController {
                     requires2FAVerification: false,
                     requires2FASetup: true,
                     qrCodeUrl: _2FASetupValues.qrCodeUrl,
+                });
+
+                return;
+            }
+            
+            if (verificationRequired) {
+                const tempToken = AuthService.createTemporaryToken(user);
+                const yubikeys = await TwoFactorHelper.getUserYubikeys(user.id);
+                const twoFactorMethod = await TwoFactorHelper.getTwoFactorMethod(user.id);
+                const availableMethods = await TwoFactorHelper.getAvailableMethods(user.id);
+
+                res.cookie('token', tempToken, {
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: 'strict',
+                    expires: moment().add(5, 'm').toDate(),
+                });
+
+                res.json({
+                    status: 'success',
+                    requires2FAVerification: true,
+                    requires2FASetup: false,
+                    twoFactorMethod: twoFactorMethod,
+                    availableMethods: availableMethods,
+                    hasTotp: !!user.twoFactorSecret,
+                    hasYubikey: yubikeys.length > 0,
                 });
 
                 return;

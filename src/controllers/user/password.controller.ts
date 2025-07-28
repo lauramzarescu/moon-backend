@@ -9,10 +9,10 @@ import {
 import {prisma} from '../../config/db.config';
 import bcrypt from 'bcrypt';
 import {LoginType, User} from '@prisma/client';
-import * as speakeasy from 'speakeasy';
 import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 import {AuditLogHelper} from '../audit-log/audit-log.helper';
 import {EmailService} from '../../services/email.service';
+import {TwoFactorHelper} from './two-factor.helper';
 import crypto from 'crypto';
 
 export class PasswordController {
@@ -29,7 +29,10 @@ export class PasswordController {
                 return;
             }
 
-            if (user.twoFactorSecret && user.twoFactorVerified) {
+            const yubikeys = await TwoFactorHelper.getUserYubikeys(user.id);
+            const has2FA = (user.twoFactorSecret && user.twoFactorVerified) || yubikeys.length > 0;
+
+            if (has2FA) {
                 res.status(400).json({message: 'You must verify your 2FA before changing password.'});
                 return;
             }
@@ -77,7 +80,10 @@ export class PasswordController {
                 return;
             }
 
-            if (!user.twoFactorSecret || !user.twoFactorVerified) {
+            const yubikeys = await TwoFactorHelper.getUserYubikeys(user.id);
+            const has2FA = (user.twoFactorSecret && user.twoFactorVerified) || yubikeys.length > 0;
+
+            if (!has2FA) {
                 res.status(400).json({message: '2FA is not enabled or verified for this account'});
                 return;
             }
@@ -90,12 +96,7 @@ export class PasswordController {
                 return;
             }
 
-            const verified = speakeasy.totp.verify({
-                secret: user.twoFactorSecret,
-                encoding: 'base32',
-                token: validatedData.code,
-            });
-
+            const verified = await TwoFactorHelper.verify2FACode(user, validatedData.code);
             if (!verified) {
                 res.status(400).json({message: 'Invalid 2FA verification code'});
                 return;
@@ -274,6 +275,39 @@ export class PasswordController {
                         targetUserEmail: targetUser.email,
                     },
                 },
+            });
+        } catch (error: any) {
+            res.status(500).json({message: error.message});
+        }
+    };
+
+    static getPasswordChange2FAStatus = async (req: express.Request, res: express.Response) => {
+        try {
+            const user = res.locals.user as User;
+
+            if (!user.password || user.loginType !== LoginType.local) {
+                res.status(400).json({message: 'Password change is only available for local accounts'});
+                return;
+            }
+
+            const yubikeys = await TwoFactorHelper.getUserYubikeys(user.id);
+            const twoFactorMethod = await TwoFactorHelper.getTwoFactorMethod(user.id);
+            const availableMethods = await TwoFactorHelper.getAvailableMethods(user.id);
+
+            const hasTotp = !!user.twoFactorSecret && user.twoFactorVerified;
+            const hasYubikey = yubikeys.length > 0;
+            const requires2FA = hasTotp || hasYubikey;
+
+            res.json({
+                requires2FA: requires2FA,
+                currentMethod: twoFactorMethod,
+                availableMethods: availableMethods,
+                hasTotp: hasTotp,
+                hasYubikey: hasYubikey,
+                yubikeyCount: yubikeys.length,
+                message: requires2FA
+                    ? 'Password change requires 2FA verification'
+                    : 'Password change does not require 2FA verification',
             });
         } catch (error: any) {
             res.status(500).json({message: error.message});
