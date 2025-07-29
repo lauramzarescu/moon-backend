@@ -1,6 +1,12 @@
 import {z} from 'zod';
 import {LoginType, TwoFactorMethod, UserRole} from '@prisma/client';
 
+// AuthType enum for YubiKey authentication types
+export enum AuthType {
+    OTP = 'OTP',
+    WEBAUTHN = 'WEBAUTHN'
+}
+
 export const userDeviceInfoSchema = z.object({
     id: z.string(),
     fingerprint: z.string(),
@@ -14,6 +20,14 @@ export const yubikeyInfoSchema = z.object({
     nickname: z.string().optional(),
     createdAt: z.string(),
     lastUsed: z.string().optional(),
+    // WebAuthn fields
+    credentialId: z.string().optional(),
+    credentialPublicKey: z.instanceof(Buffer).optional(),
+    counter: z.number().default(0),
+    credentialDeviceType: z.string().optional(),
+    credentialBackedUp: z.boolean().default(false),
+    transports: z.array(z.string()).default([]),
+    authType: z.nativeEnum(AuthType).default(AuthType.OTP),
 });
 
 export const userSchema = z.object({
@@ -185,11 +199,52 @@ export const yubikeyUpdateSchema = z.object({
     nickname: z.string().optional(),
 });
 
+// WebAuthn schemas
+export const webauthnRegistrationStartSchema = z.object({
+    nickname: z.string().optional(),
+});
+
+export const webauthnRegistrationCompleteSchema = z.object({
+    credential: z.object({
+        id: z.string(),
+        rawId: z.string(),
+        response: z.object({
+            attestationObject: z.string(),
+            clientDataJSON: z.string(),
+            transports: z.array(z.string()).optional(),
+        }),
+        type: z.literal('public-key'),
+        clientExtensionResults: z.record(z.any()).default({}),
+    }),
+    nickname: z.string().optional(),
+    challengeId: z.string(),
+});
+
+export const webauthnAuthenticationStartSchema = z.object({
+    // No additional fields needed for starting authentication
+});
+
+export const webauthnAuthenticationCompleteSchema = z.object({
+    credential: z.object({
+        id: z.string(),
+        rawId: z.string(),
+        response: z.object({
+            authenticatorData: z.string(),
+            clientDataJSON: z.string(),
+            signature: z.string(),
+            userHandle: z.string().optional(),
+        }),
+        type: z.literal('public-key'),
+        clientExtensionResults: z.record(z.any()).default({}),
+    }),
+    challengeId: z.string(),
+});
+
 export type UserInput = z.infer<typeof userSchema>;
 export type TwoFactorVerifyInput = z.infer<typeof twoFactorVerifySchema>;
 export type TwoFactorDisableInput = z.infer<typeof twoFactorDisableSchema>;
 export type UserDeviceInfo = z.infer<typeof userDeviceInfoSchema>;
-export type YubikeyInfo = z.infer<typeof yubikeyInfoSchema>;
+export type YubikeyInfoType = z.infer<typeof yubikeyInfoSchema>;
 export type UserCreateInput = z.infer<typeof userCreateSchema>;
 export type UserCreateByInvitationInput = z.infer<typeof userCreateByInvitationSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
@@ -203,3 +258,9 @@ export type YubikeySetupResponse = z.infer<typeof yubikeySetupResponseSchema>;
 export type YubikeyVerifyInput = z.infer<typeof yubikeyVerifySchema>;
 export type TwoFactorMethodSelectInput = z.infer<typeof twoFactorMethodSelectSchema>;
 export type YubikeyUpdateInput = z.infer<typeof yubikeyUpdateSchema>;
+export type WebAuthnRegistrationStartInput = z.infer<typeof webauthnRegistrationStartSchema>;
+export type WebAuthnRegistrationCompleteInput = z.infer<typeof webauthnRegistrationCompleteSchema>;
+export type WebAuthnAuthenticationStartInput = z.infer<typeof webauthnAuthenticationStartSchema>;
+export type WebAuthnAuthenticationCompleteInput = z.infer<typeof webauthnAuthenticationCompleteSchema>;
+
+// AuthType is already exported from the import statement above

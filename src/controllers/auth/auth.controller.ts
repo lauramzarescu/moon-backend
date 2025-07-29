@@ -7,7 +7,7 @@ import {loginSchema} from './auth.schema';
 import {prisma} from '../../config/db.config';
 import {AuditLogHelper} from '../audit-log/audit-log.helper';
 import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
-import {LoginType} from '@prisma/client';
+import {AuthType, LoginType} from '@prisma/client';
 import logger from '../../config/logger';
 import {OrganizationRepository} from '../../repositories/organization/organization.repository';
 import {TwoFactorHelper} from '../user/two-factor.helper';
@@ -75,6 +75,13 @@ export class AuthController {
                 const twoFactorMethod = await TwoFactorHelper.getTwoFactorMethod(user.id);
                 const availableMethods = await TwoFactorHelper.getAvailableMethods(user.id);
 
+                const otpCredentials = yubikeys.filter(y => y.authType === AuthType.OTP);
+                const webauthnCredentials = yubikeys.filter(y => y.authType === AuthType.WEBAUTHN);
+                const hasTotp = !!user.twoFactorSecret;
+                const hasWebAuthn = webauthnCredentials.length > 0;
+                const hasOtpYubikey = otpCredentials.length > 0;
+                const highSecurityAvailable = hasTotp || hasWebAuthn;
+
                 res.cookie('token', tempToken, {
                     secure: process.env.NODE_ENV === 'production',
                     sameSite: 'strict',
@@ -87,8 +94,11 @@ export class AuthController {
                     requires2FASetup: false,
                     twoFactorMethod: twoFactorMethod,
                     availableMethods: availableMethods,
-                    hasTotp: !!user.twoFactorSecret,
+                    hasTotp: hasTotp, // Always show if available (high security)
                     hasYubikey: yubikeys.length > 0,
+                    hasYubikeyOTP: hasOtpYubikey && !highSecurityAvailable, // Hide OTP if high-security available
+                    hasWebAuthn: hasWebAuthn, // Always show if available (high security)
+                    enforcedMethod: null, // No enforcement - mobile auth and WebAuthn coexist
                 });
 
                 return;

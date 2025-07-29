@@ -1,4 +1,4 @@
-import {PrismaClient, YubikeyInfo} from '@prisma/client';
+import {AuthType, PrismaClient, YubikeyInfo} from '@prisma/client';
 import {GenericRepository} from '../generic.repository';
 
 export class YubikeyRepository extends GenericRepository<YubikeyInfo> {
@@ -6,7 +6,18 @@ export class YubikeyRepository extends GenericRepository<YubikeyInfo> {
         super(prisma, 'yubikeyInfo');
     }
 
-    async create(data: {publicId: string; nickname?: string; userId: string}): Promise<YubikeyInfo> {
+    async create(data: {
+        publicId: string;
+        nickname?: string;
+        userId: string;
+        credentialId?: string;
+        credentialPublicKey?: Buffer;
+        counter?: number;
+        credentialDeviceType?: string;
+        credentialBackedUp?: boolean;
+        transports?: string[];
+        authType?: AuthType;
+    }): Promise<YubikeyInfo> {
         return super.create(data);
     }
 
@@ -84,6 +95,55 @@ export class YubikeyRepository extends GenericRepository<YubikeyInfo> {
         return this.repository.count({
             where: {
                 userId,
+            },
+        });
+    }
+
+    async findByCredentialId(credentialId: string): Promise<YubikeyInfo | null> {
+        return this.findOneWhere({
+            credentialId,
+        });
+    }
+
+    async findByUserIdAndCredentialId(userId: string, credentialId: string): Promise<YubikeyInfo | null> {
+        return this.findOneWhere({
+            userId,
+            credentialId,
+        });
+    }
+
+    async updateCounter(credentialId: string, counter: number): Promise<void> {
+        await this.repository.updateMany({
+            where: {
+                credentialId,
+            },
+            data: {
+                counter,
+                lastUsed: new Date(),
+            },
+        });
+    }
+
+    async findWebAuthnCredentialsByUserId(userId: string): Promise<YubikeyInfo[]> {
+        return this.repository.findMany({
+            where: {
+                userId,
+                authType: AuthType.WEBAUTHN,
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+        });
+    }
+
+    async findOTPCredentialsByUserId(userId: string): Promise<YubikeyInfo[]> {
+        return this.repository.findMany({
+            where: {
+                userId,
+                authType: AuthType.OTP,
+            },
+            orderBy: {
+                createdAt: 'desc',
             },
         });
     }

@@ -23,26 +23,26 @@ model Organization {
 }
 
 model User {
-  id                String           @id @default(uuid())
+  id                        String           @id @default(uuid())
   name                      String?
-  email             String           @unique
+  email                     String           @unique
   organizationId            String
   password                  String?
-  loginType         LoginType        @default(local)
-  role              UserRole         @default(user)
-  nameID            String?          @unique
+  loginType                 LoginType        @default(local)
+  role                      UserRole         @default(user)
+  nameID                    String?          @unique
   nameIDFormat              String?
   sessionIndex              String?
   lastLogin                 DateTime?
   verifiedDevices           Json[]
   twoFactorSecret           String?
-  twoFactorVerified Boolean          @default(false)
-  twoFactorMethod   TwoFactorMethod? @default(TOTP)
-  yubikeys          YubikeyInfo[]
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  twoFactorVerified         Boolean          @default(false)
+  twoFactorMethod           TwoFactorMethod? @default(TOTP)
+  yubikeys                  YubikeyInfo[]
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
   auditLogs                 AuditLog[]
-  organization      Organization     @relation(fields: [organizationId], references: [id])
+  organization              Organization     @relation(fields: [organizationId], references: [id])
   resetToken                String?
   resetTokenExpiry          DateTime?
   twoFactorResetToken       String?
@@ -50,13 +50,24 @@ model User {
 }
 
 model YubikeyInfo {
-  id        String    @id @default(uuid())
-  publicId  String    @unique
-  nickname  String?
-  createdAt DateTime  @default(now())
-  lastUsed  DateTime?
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                   String    @id @default(uuid())
+  publicId             String    @unique
+  nickname             String?
+  createdAt            DateTime  @default(now())
+  lastUsed             DateTime?
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // WebAuthn fields
+  credentialId         String?
+  credentialPublicKey  Bytes?
+  counter              Int       @default(0)
+  credentialDeviceType String?
+  credentialBackedUp   Boolean   @default(false)
+  transports           String[]
+  authType             AuthType  @default(OTP)
+
+  @@index([credentialId])
+  @@index([authType])
 }
 
 model Action {
@@ -161,4 +172,9 @@ enum TwoFactorMethod {
   TOTP
   YUBIKEY
   ANY
+}
+
+enum AuthType {
+  OTP
+  WEBAUTHN
 }

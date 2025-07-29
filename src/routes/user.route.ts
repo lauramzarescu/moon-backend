@@ -169,4 +169,34 @@ router.post(
     TwoFactorController.setTwoFactorMethod
 );
 
+// WebAuthn routes
+router.post(
+    '/2fa/webauthn/registration/start',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    TwoFactorController.startWebAuthnRegistration
+);
+router.post(
+    '/2fa/webauthn/registration/complete',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    TwoFactorController.completeWebAuthnRegistration
+);
+router.post('/2fa/webauthn/authentication/start', TwoFactorController.startWebAuthnAuthentication);
+router.post('/2fa/webauthn/authentication/complete', TwoFactorController.completeWebAuthnAuthentication);
+
+// WebAuthn re-authentication routes (for already authenticated users)
+router.post(
+    '/2fa/webauthn/start',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    TwoFactorController.startWebAuthnReAuthentication
+);
+router.post(
+    '/2fa/webauthn/complete',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    TwoFactorController.completeWebAuthnReAuthentication
+);
+
 export default router;

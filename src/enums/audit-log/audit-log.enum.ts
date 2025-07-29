@@ -11,6 +11,7 @@ export enum AuditLogEnum {
     USER_2FA_ENABLED = 'user:2fa:enabled',
     USER_2FA_DISABLED = 'user:2fa:disabled',
     USER_2FA_SESSION_VERIFIED = 'user:2fa:session:verified',
+    USER_2FA_VERIFIED = 'user:2fa:verified',
     USER_2FA_RESET_REQUESTED = 'user:2fa:reset:requested',
     USER_2FA_RESET = 'user:2fa:reset',
 
