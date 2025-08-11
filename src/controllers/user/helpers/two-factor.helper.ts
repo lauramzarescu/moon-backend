@@ -5,11 +5,11 @@ import {UAParser} from 'ua-parser-js';
 import * as speakeasy from 'speakeasy';
 import {GeneratedSecret} from 'speakeasy';
 import * as crypto from 'crypto';
-import {UserRepository} from '../../repositories/user/user.repository';
-import {prisma} from '../../config/db.config';
-import {OrganizationRepository} from '../../repositories/organization/organization.repository';
-import {YubikeyRepository} from '../../repositories/yubikey/yubikey.repository';
-import {UserDeviceInfo} from './user.schema';
+import {UserRepository} from '../../../repositories/user/user.repository';
+import {prisma} from '../../../config/db.config';
+import {OrganizationRepository} from '../../../repositories/organization/organization.repository';
+import {YubikeyRepository} from '../../../repositories/yubikey/yubikey.repository';
+import {UserDeviceInfo} from '../schemas/user.schema';
 import type {
     AuthenticationResponseJSON,
     GenerateAuthenticationOptionsOpts,
@@ -24,6 +24,10 @@ import {
     verifyAuthenticationResponse,
     verifyRegistrationResponse,
 } from '@simplewebauthn/server';
+import type {
+    PublicKeyCredentialCreationOptionsJSON,
+    PublicKeyCredentialRequestOptionsJSON,
+} from '@simplewebauthn/server/esm/types';
 
 const yub = require('yub');
 const TWO_FACTOR_EXPIRATION_DAYS = 21;
@@ -33,7 +37,6 @@ const RP_NAME = 'MOON';
 const RP_ID = process.env.WEBAUTHN_RP_ID || 'localhost';
 const ORIGIN = process.env.WEBAUTHN_ORIGIN || 'http://localhost:3000';
 
-// Temporary challenge storage (in production, use Redis or database)
 const challengeStore = new Map<string, {challenge: string; userId: string; timestamp: number}>();
 
 // Clean up expired challenges every 5 minutes
@@ -222,7 +225,6 @@ export class TwoFactorHelper {
 
         return new Promise(resolve => {
             yub.verify(otp, (err: any, data: any) => {
-                console.log('YubiKey verification result:', data);
                 if (err) {
                     resolve({valid: false, error: err.message});
                     return;
@@ -376,13 +378,10 @@ export class TwoFactorHelper {
 
     static async verify2FACode(user: User, code: string, method?: TwoFactorMethod): Promise<boolean> {
         const yubikeys = await this.getUserYubikeys(user.id);
-        const hasTotp = !!user.twoFactorSecret;
         const hasWebAuthn = yubikeys.some(y => y.authType === AuthType.WEBAUTHN);
-        const hasOtpYubikey = yubikeys.some(y => y.authType === AuthType.OTP);
 
         // Security hierarchy: Mobile auth = WebAuthn > OTP YubiKey
         // Block OTP YubiKey if WebAuthn is available
-        const webAuthnAvailable = hasWebAuthn;
 
         const twoFactorMethod = method || user.twoFactorMethod || TwoFactorMethod.TOTP;
 
@@ -395,14 +394,9 @@ export class TwoFactorHelper {
             case TwoFactorMethod.YUBIKEY:
                 // Check if this is WebAuthn or OTP YubiKey verification
                 if (hasWebAuthn) {
-                    // WebAuthn verification should be handled separately via WebAuthn endpoints
+                    // WebAuthn verification is handled separately via WebAuthn endpoints
                     // This method is for OTP verification only
                     return false;
-                }
-
-                // For OTP YubiKey: only allow if WebAuthn is not available
-                if (webAuthnAvailable && hasOtpYubikey) {
-                    return false; // Block OTP when WebAuthn is available
                 }
 
                 const yubikeyResult = await this.verifyYubikeyOTP(code);
@@ -429,20 +423,17 @@ export class TwoFactorHelper {
         const hasWebAuthn = yubikeys.some(y => y.authType === AuthType.WEBAUTHN);
         const hasOtpYubikey = yubikeys.some(y => y.authType === AuthType.OTP);
 
-        // Security hierarchy: Mobile auth = WebAuthn > OTP YubiKey
-        const webAuthnAvailable = hasWebAuthn;
-
         // Try mobile auth (TOTP) first if it looks like a 6-digit code and user has TOTP set up
         if (code.length === 6 && /^\d{6}$/.test(code) && hasTotp && user.twoFactorSecret) {
             const totpValid = await this.verifyTOTPCode(user.twoFactorSecret, code);
             if (totpValid) return true;
         }
 
-        // WebAuthn verification should be handled separately via WebAuthn endpoints
+        // WebAuthn verification is handled separately via WebAuthn endpoints
         // This method doesn't handle WebAuthn
 
         // Try YubiKey OTP only if WebAuthn is not available
-        if (hasOtpYubikey && !webAuthnAvailable && code.length >= 32 && /^[cbdefghijklnrtuv]{32,48}$/.test(code)) {
+        if (hasOtpYubikey && !hasWebAuthn && code.length >= 32 && /^[cbdefghijklnrtuv]{32,48}$/.test(code)) {
             const yubikeyResult = await this.verifyYubikeyOTP(code);
 
             if (yubikeyResult.valid && yubikeyResult.identity) {
@@ -500,12 +491,11 @@ export class TwoFactorHelper {
         return crypto.randomBytes(32).toString('hex');
     }
 
-    // WebAuthn methods
     static async generateWebAuthnRegistrationOptions(
         userId: string,
         userName: string
     ): Promise<{
-        options: any;
+        options: PublicKeyCredentialCreationOptionsJSON;
         challengeId: string;
     }> {
         const user = await this.userRepository.getOne(userId);
@@ -577,18 +567,16 @@ export class TwoFactorHelper {
                 const credentialBackedUp = registrationInfo.credentialBackedUp;
 
                 // Check if credential already exists
-                const existingCredential = await this.yubikeyRepository.findByCredentialId(
-                    Buffer.from(credentialID).toString('base64url')
-                );
+                const credentialIdBase64 = Buffer.from(credentialID).toString('base64url');
+                const existingCredential = await this.yubikeyRepository.findByCredentialId(credentialIdBase64);
 
                 if (existingCredential) {
                     return {verified: false, error: 'Credential already registered'};
                 }
 
                 // Save the credential
-                const credentialIdBase64 = Buffer.from(credentialID).toString('base64url');
                 await this.yubikeyRepository.create({
-                    publicId: credentialIdBase64, // Use credentialId as publicId for WebAuthn
+                    publicId: credentialIdBase64,
                     nickname,
                     userId,
                     credentialId: credentialIdBase64,
@@ -618,13 +606,15 @@ export class TwoFactorHelper {
         }
     }
 
-    static async generateWebAuthnAuthenticationOptions(userId: string): Promise<{options: any; challengeId: string}> {
+    static async generateWebAuthnAuthenticationOptions(
+        userId: string
+    ): Promise<{options: PublicKeyCredentialRequestOptionsJSON; challengeId: string}> {
         const credentials = await this.yubikeyRepository.findWebAuthnCredentialsByUserId(userId);
 
         const options: GenerateAuthenticationOptionsOpts = {
             rpID: RP_ID,
             allowCredentials: credentials.map(cred => ({
-                id: cred.credentialId!,
+                id: Buffer.from(cred.credentialId!, 'base64url').toString(),
                 type: 'public-key',
                 transports: cred.transports as any[],
             })),
@@ -659,7 +649,7 @@ export class TwoFactorHelper {
                 return {verified: false, error: 'Challenge does not match user'};
             }
 
-            const credentialIdBase64 = Buffer.from(response.rawId, 'base64url').toString('base64url');
+            const credentialIdBase64 = Buffer.from(response.rawId).toString('base64url');
             const credential = await this.yubikeyRepository.findByUserIdAndCredentialId(userId, credentialIdBase64);
 
             if (!credential || !credential.credentialPublicKey) {

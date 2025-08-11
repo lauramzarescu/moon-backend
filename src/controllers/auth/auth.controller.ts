@@ -10,7 +10,7 @@ import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 import {AuthType, LoginType} from '@prisma/client';
 import logger from '../../config/logger';
 import {OrganizationRepository} from '../../repositories/organization/organization.repository';
-import {TwoFactorHelper} from '../user/two-factor.helper';
+import {TwoFactorHelper} from '../user/helpers/two-factor.helper';
 
 export class AuthController {
     static userRepository = new UserRepository(prisma);
@@ -68,7 +68,7 @@ export class AuthController {
 
                 return;
             }
-            
+
             if (verificationRequired) {
                 const tempToken = AuthService.createTemporaryToken(user);
                 const yubikeys = await TwoFactorHelper.getUserYubikeys(user.id);

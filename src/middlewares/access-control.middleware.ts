@@ -2,7 +2,7 @@ import {NextFunction, Request, Response} from 'express';
 import {UserRole} from '@prisma/client';
 import {UserRepository} from '../repositories/user/user.repository';
 import {AccessControlHelper} from '../controllers/access-control/helper';
-import {UserInput} from '../controllers/user/user.schema';
+import {UserInput} from '../controllers/user/schemas/user.schema';
 import {prisma} from '../config/db.config';
 import {SamlConfigRepository} from '../repositories/saml-config/saml-config.repository';
 import logger from '../config/logger';

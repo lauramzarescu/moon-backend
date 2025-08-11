@@ -1,7 +1,7 @@
 import {UserRole} from '@prisma/client';
-import {UserRepository} from '../../repositories/user/user.repository';
-import {PaginationParams} from '../../utils/pagination.util';
-import {prisma} from '../../config/db.config';
+import {UserRepository} from '../../../repositories/user/user.repository';
+import {PaginationParams} from '../../../utils/pagination.util';
+import {prisma} from '../../../config/db.config';
 
 export class UserHelper {
     static userRepository = new UserRepository(prisma);

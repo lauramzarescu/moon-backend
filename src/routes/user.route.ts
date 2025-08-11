@@ -7,6 +7,7 @@ import {PermissionEnum} from '../enums/rbac/permission.enum';
 import {requireOrganizationAdminGuard} from '../middlewares/admin-auth.middleware';
 import {userInfoMiddleware} from '../middlewares/user-info.middleware';
 import multer from 'multer';
+import {WebauthnController} from '../controllers/user/webauthn.controller';
 
 const router = express.Router();
 
@@ -98,6 +99,18 @@ router.post(
     isAuthenticatedGuard([PermissionEnum.USER_READ]),
     PasswordController.changePasswordWith2FA
 );
+router.post(
+    '/webauthn/change-password/start',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    PasswordController.startPasswordChangeWebAuthn
+);
+router.post(
+    '/webauthn/change-password/complete',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    PasswordController.changePasswordWithWebAuthn
+);
 router.post('/forgot-password', PasswordController.forgotPassword);
 router.post('/reset-password', PasswordController.resetPassword);
 router.post(
@@ -174,29 +187,29 @@ router.post(
     '/2fa/webauthn/registration/start',
     userInfoMiddleware,
     isAuthenticatedGuard([PermissionEnum.USER_READ]),
-    TwoFactorController.startWebAuthnRegistration
-);
+    WebauthnController.startWebAuthnRegistration
+),;
 router.post(
     '/2fa/webauthn/registration/complete',
     userInfoMiddleware,
     isAuthenticatedGuard([PermissionEnum.USER_READ]),
-    TwoFactorController.completeWebAuthnRegistration
+    WebauthnController.completeWebAuthnRegistration,
 );
-router.post('/2fa/webauthn/authentication/start', TwoFactorController.startWebAuthnAuthentication);
-router.post('/2fa/webauthn/authentication/complete', TwoFactorController.completeWebAuthnAuthentication);
+router.post('/2fa/webauthn/authentication/start', WebauthnController.startWebAuthnAuthentication);
+router.post('/2fa/webauthn/authentication/complete', WebauthnController.completeWebAuthnAuthentication);
 
 // WebAuthn re-authentication routes (for already authenticated users)
 router.post(
     '/2fa/webauthn/start',
     userInfoMiddleware,
     isAuthenticatedGuard([PermissionEnum.USER_READ]),
-    TwoFactorController.startWebAuthnReAuthentication
+    WebauthnController.startWebAuthnReAuthentication,
 );
 router.post(
     '/2fa/webauthn/complete',
     userInfoMiddleware,
     isAuthenticatedGuard([PermissionEnum.USER_READ]),
-    TwoFactorController.completeWebAuthnReAuthentication
+    WebauthnController.completeWebAuthnReAuthentication,
 );
 
 export default router;

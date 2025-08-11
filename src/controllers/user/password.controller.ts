@@ -3,16 +3,17 @@ import {UserRepository} from '../../repositories/user/user.repository';
 import {
     changePasswordSchema,
     changePasswordWith2FASchema,
+    changePasswordWithWebAuthnSchema,
     forgotPasswordSchema,
     resetPasswordSchema,
-} from './user.schema';
+} from './schemas/user.schema';
 import {prisma} from '../../config/db.config';
 import bcrypt from 'bcrypt';
-import {LoginType, User} from '@prisma/client';
+import {AuthType, LoginType, User} from '@prisma/client';
 import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 import {AuditLogHelper} from '../audit-log/audit-log.helper';
 import {EmailService} from '../../services/email.service';
-import {TwoFactorHelper} from './two-factor.helper';
+import {TwoFactorHelper} from './helpers/two-factor.helper';
 import crypto from 'crypto';
 
 export class PasswordController {
@@ -47,13 +48,13 @@ export class PasswordController {
 
             const hashedPassword = await bcrypt.hash(validatedData.newPassword, 10);
 
-            await this.userRepository.update(user.id, {
+            await PasswordController.userRepository.update(user.id, {
                 password: hashedPassword,
             });
 
             res.json({success: true, message: 'Password changed successfully'});
 
-            await this.auditHelper.create({
+            await PasswordController.auditHelper.create({
                 userId: user?.id || '-',
                 organizationId: user?.organizationId || '-',
                 action: AuditLogEnum.USER_PASSWORD_CHANGED,
@@ -104,14 +105,14 @@ export class PasswordController {
 
             const hashedPassword = await bcrypt.hash(validatedData.newPassword, 10);
 
-            await this.userRepository.update(user.id, {
+            await PasswordController.userRepository.update(user.id, {
                 password: hashedPassword,
                 verifiedDevices: [],
             });
 
             res.json({success: true, message: 'Password changed successfully with 2FA verification'});
 
-            await this.auditHelper.create({
+            await PasswordController.auditHelper.create({
                 userId: user?.id || '-',
                 organizationId: user?.organizationId || '-',
                 action: AuditLogEnum.USER_PASSWORD_CHANGED,
@@ -129,10 +130,102 @@ export class PasswordController {
         }
     };
 
+    static changePasswordWithWebAuthn = async (req: express.Request, res: express.Response) => {
+        try {
+            const user = res.locals.user as User;
+
+            if (!user.password || user.loginType !== LoginType.local) {
+                res.status(400).json({message: 'Password change is only available for local accounts'});
+                return;
+            }
+
+            const yubikeys = await TwoFactorHelper.getUserYubikeys(user.id);
+            const hasWebAuthn = yubikeys.some(y => y.authType === AuthType.WEBAUTHN);
+
+            if (!hasWebAuthn) {
+                res.status(400).json({message: 'WebAuthn is not enabled for this account'});
+                return;
+            }
+
+            const validatedData = changePasswordWithWebAuthnSchema.parse(req.body);
+            const isPasswordValid = await bcrypt.compare(validatedData.currentPassword, user.password);
+
+            if (!isPasswordValid) {
+                res.status(400).json({message: 'Current password is incorrect'});
+                return;
+            }
+
+            // Verify WebAuthn authentication
+            const webAuthnResult = await TwoFactorHelper.verifyWebAuthnAuthentication(
+                user.id,
+                validatedData.credential as any,
+                validatedData.challengeId
+            );
+
+            if (!webAuthnResult.verified) {
+                res.status(400).json({message: webAuthnResult.error || 'WebAuthn verification failed'});
+                return;
+            }
+
+            const hashedPassword = await bcrypt.hash(validatedData.newPassword, 10);
+
+            await PasswordController.userRepository.update(user.id, {
+                password: hashedPassword,
+                verifiedDevices: [],
+            });
+
+            res.json({success: true, message: 'Password changed successfully with WebAuthn verification'});
+
+            await PasswordController.auditHelper.create({
+                userId: user?.id || '-',
+                organizationId: user?.organizationId || '-',
+                action: AuditLogEnum.USER_PASSWORD_CHANGED,
+                details: {
+                    ip: (req as any).ipAddress,
+                    info: {
+                        userAgent: req.headers['user-agent'],
+                        email: user?.email || '-',
+                        description: `User ${user.email} changed password with WebAuthn`,
+                    },
+                },
+            });
+        } catch (error: any) {
+            res.status(500).json({message: error.message});
+        }
+    };
+
+    static startPasswordChangeWebAuthn = async (req: express.Request, res: express.Response) => {
+        try {
+            const user = res.locals.user as User;
+
+            if (!user.password || user.loginType !== LoginType.local) {
+                res.status(400).json({message: 'Password change is only available for local accounts'});
+                return;
+            }
+
+            const yubikeys = await TwoFactorHelper.getUserYubikeys(user.id);
+            const hasWebAuthn = yubikeys.some(y => y.authType === AuthType.WEBAUTHN);
+
+            if (!hasWebAuthn) {
+                res.status(400).json({message: 'WebAuthn is not enabled for this account'});
+                return;
+            }
+
+            const {options, challengeId} = await TwoFactorHelper.generateWebAuthnAuthenticationOptions(user.id);
+
+            res.json({
+                options,
+                challengeId: challengeId,
+            });
+        } catch (error: any) {
+            res.status(500).json({message: error.message});
+        }
+    };
+
     static forgotPassword = async (req: express.Request, res: express.Response) => {
         try {
             const validatedData = forgotPasswordSchema.parse(req.body);
-            const user = await this.userRepository.findOneWhere({
+            const user = await PasswordController.userRepository.findOneWhere({
                 email: validatedData.email.toLowerCase(),
             });
 
@@ -151,17 +244,17 @@ export class PasswordController {
             const resetToken = crypto.randomBytes(32).toString('hex');
             const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
 
-            await this.userRepository.update(user.id, {
+            await PasswordController.userRepository.update(user.id, {
                 resetToken,
                 resetTokenExpiry,
             });
 
             // Mock email sending
-            await this.emailService.sendPasswordResetEmail(user.email, resetToken);
+            await PasswordController.emailService.sendPasswordResetEmail(user.email, resetToken);
 
             res.json({success: true, message: 'If the email exists, a password reset link will be sent'});
 
-            await this.auditHelper.create({
+            await PasswordController.auditHelper.create({
                 userId: user.id,
                 organizationId: user.organizationId,
                 action: AuditLogEnum.USER_PASSWORD_RESET_REQUESTED,
@@ -183,7 +276,7 @@ export class PasswordController {
         try {
             const validatedData = resetPasswordSchema.parse(req.body);
 
-            const user = await this.userRepository.findOneWhere({
+            const user = await PasswordController.userRepository.findOneWhere({
                 resetToken: validatedData.token,
             });
 
@@ -194,7 +287,7 @@ export class PasswordController {
 
             const hashedPassword = await bcrypt.hash(validatedData.newPassword, 10);
 
-            await this.userRepository.update(user.id, {
+            await PasswordController.userRepository.update(user.id, {
                 password: hashedPassword,
                 resetToken: null,
                 resetTokenExpiry: null,
@@ -204,7 +297,7 @@ export class PasswordController {
 
             res.json({success: true, message: 'Password reset successfully'});
 
-            await this.auditHelper.create({
+            await PasswordController.auditHelper.create({
                 userId: user.id,
                 organizationId: user.organizationId,
                 action: AuditLogEnum.USER_PASSWORD_RESET,
@@ -225,7 +318,7 @@ export class PasswordController {
     static adminResetPassword = async (req: express.Request, res: express.Response) => {
         try {
             const requesterUser = res.locals.user as User;
-            const targetUser = await this.userRepository.getOne(req.params.id);
+            const targetUser = await PasswordController.userRepository.getOne(req.params.id);
 
             // Ensure target user belongs to same organization
             if (targetUser.organizationId !== requesterUser.organizationId) {
@@ -248,20 +341,20 @@ export class PasswordController {
             const resetToken = crypto.randomBytes(32).toString('hex');
             const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
 
-            await this.userRepository.update(targetUser.id, {
+            await PasswordController.userRepository.update(targetUser.id, {
                 resetToken,
                 resetTokenExpiry,
                 password: null,
             });
 
-            await this.emailService.sendPasswordResetEmail(targetUser.email, resetToken);
+            await PasswordController.emailService.sendPasswordResetEmail(targetUser.email, resetToken);
 
             res.json({
                 success: true,
                 message: `Password reset email sent successfully for user ${targetUser.email}`,
             });
 
-            await this.auditHelper.create({
+            await PasswordController.auditHelper.create({
                 userId: requesterUser.id,
                 organizationId: requesterUser.organizationId,
                 action: AuditLogEnum.USER_PASSWORD_ADMIN_RESET,
@@ -296,6 +389,8 @@ export class PasswordController {
 
             const hasTotp = !!user.twoFactorSecret && user.twoFactorVerified;
             const hasYubikey = yubikeys.length > 0;
+            const hasWebAuthn = yubikeys.some(y => y.authType === AuthType.WEBAUTHN);
+            const hasOtpYubikey = yubikeys.some(y => y.authType === AuthType.OTP);
             const requires2FA = hasTotp || hasYubikey;
 
             res.json({
@@ -304,7 +399,11 @@ export class PasswordController {
                 availableMethods: availableMethods,
                 hasTotp: hasTotp,
                 hasYubikey: hasYubikey,
+                hasWebAuthn: hasWebAuthn,
+                hasOtpYubikey: hasOtpYubikey,
                 yubikeyCount: yubikeys.length,
+                webAuthnCount: yubikeys.filter(y => y.authType === AuthType.WEBAUTHN).length,
+                otpYubikeyCount: yubikeys.filter(y => y.authType === AuthType.OTP).length,
                 message: requires2FA
                     ? 'Password change requires 2FA verification'
                     : 'Password change does not require 2FA verification',

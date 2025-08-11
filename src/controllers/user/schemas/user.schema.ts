@@ -4,7 +4,7 @@ import {LoginType, TwoFactorMethod, UserRole} from '@prisma/client';
 // AuthType enum for YubiKey authentication types
 export enum AuthType {
     OTP = 'OTP',
-    WEBAUTHN = 'WEBAUTHN'
+    WEBAUTHN = 'WEBAUTHN',
 }
 
 export const userDeviceInfoSchema = z.object({
@@ -136,6 +136,24 @@ export const changePasswordWith2FASchema = z.object({
         ),
 });
 
+export const changePasswordWithWebAuthnSchema = z.object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+    credential: z.object({
+        id: z.string(),
+        rawId: z.string(),
+        response: z.object({
+            authenticatorData: z.string(),
+            clientDataJSON: z.string(),
+            signature: z.string(),
+            userHandle: z.string().optional(),
+        }),
+        type: z.literal('public-key'),
+        clientExtensionResults: z.record(z.any()).default({}),
+    }),
+    challengeId: z.string(),
+});
+
 export const forgotPasswordSchema = z.object({
     email: z.string().email('Valid email is required'),
 });
@@ -250,6 +268,8 @@ export type UserCreateByInvitationInput = z.infer<typeof userCreateByInvitationS
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type AdminResetPasswordInput = z.infer<typeof adminResetPasswordSchema>;
+export type ChangePasswordWith2FAInput = z.infer<typeof changePasswordWith2FASchema>;
+export type ChangePasswordWithWebAuthnInput = z.infer<typeof changePasswordWithWebAuthnSchema>;
 export type Reset2FAInput = z.infer<typeof reset2FASchema>;
 export type UserImportInput = z.infer<typeof userImportSchema>;
 export type UserExportInput = z.infer<typeof userExportSchema>;
@@ -262,5 +282,3 @@ export type WebAuthnRegistrationStartInput = z.infer<typeof webauthnRegistration
 export type WebAuthnRegistrationCompleteInput = z.infer<typeof webauthnRegistrationCompleteSchema>;
 export type WebAuthnAuthenticationStartInput = z.infer<typeof webauthnAuthenticationStartSchema>;
 export type WebAuthnAuthenticationCompleteInput = z.infer<typeof webauthnAuthenticationCompleteSchema>;
-
-// AuthType is already exported from the import statement above
