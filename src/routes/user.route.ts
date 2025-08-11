@@ -188,12 +188,12 @@ router.post(
     userInfoMiddleware,
     isAuthenticatedGuard([PermissionEnum.USER_READ]),
     WebauthnController.startWebAuthnRegistration
-),;
+);
 router.post(
     '/2fa/webauthn/registration/complete',
     userInfoMiddleware,
     isAuthenticatedGuard([PermissionEnum.USER_READ]),
-    WebauthnController.completeWebAuthnRegistration,
+    WebauthnController.completeWebAuthnRegistration
 );
 router.post('/2fa/webauthn/authentication/start', WebauthnController.startWebAuthnAuthentication);
 router.post('/2fa/webauthn/authentication/complete', WebauthnController.completeWebAuthnAuthentication);
@@ -203,13 +203,13 @@ router.post(
     '/2fa/webauthn/start',
     userInfoMiddleware,
     isAuthenticatedGuard([PermissionEnum.USER_READ]),
-    WebauthnController.startWebAuthnReAuthentication,
+    WebauthnController.startWebAuthnReAuthentication
 );
 router.post(
     '/2fa/webauthn/complete',
     userInfoMiddleware,
     isAuthenticatedGuard([PermissionEnum.USER_READ]),
-    WebauthnController.completeWebAuthnReAuthentication,
+    WebauthnController.completeWebAuthnReAuthentication
 );
 
 export default router;
