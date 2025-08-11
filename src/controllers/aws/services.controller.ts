@@ -85,6 +85,7 @@ export class ServicesController {
                         userAgent: req.headers['user-agent'],
                         email: user?.email || '-',
                         description: `Service ${serviceName} in cluster ${clusterName} updated to new image ${newImageUri}`,
+                        cluster: clusterName,
                     },
                 },
             });
