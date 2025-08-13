@@ -13,6 +13,7 @@ export const serviceUpdateImageSchema = z.object({
     serviceName: z.string().min(1, 'Service name is required'),
     containerName: z.string().min(1, 'Container name is required'),
     newImageUri: z.string().min(1, 'New image URI is required'),
+    oldImageUri: z.string().min(1, 'Old image URI is required'),
 });
 
 export type ServiceUpdateCountInput = z.infer<typeof serviceUpdateCountSchema>;
