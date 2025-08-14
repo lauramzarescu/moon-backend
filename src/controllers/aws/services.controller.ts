@@ -7,6 +7,7 @@ import {AuditLogHelper} from '../audit-log/audit-log.helper';
 import {UserRepository} from '../../repositories/user/user.repository';
 import {prisma} from '../../config/db.config';
 import {User} from '@prisma/client';
+import {log} from 'console';
 
 export class ServicesController {
     private readonly ecsService: ECSService;
@@ -57,7 +58,9 @@ export class ServicesController {
 
     public updateServiceContainerImage = async (req: express.Request, res: Response) => {
         try {
-            const {clusterName, serviceName, containerName, newImageUri} = serviceUpdateImageSchema.parse(req.body);
+            const {clusterName, serviceName, containerName, newImageUri, oldImageUri} = serviceUpdateImageSchema.parse(
+                req.body
+            );
             const newTaskDefinitionArn = await this.ecsService.updateServiceContainerImage(
                 clusterName,
                 serviceName,
@@ -86,14 +89,16 @@ export class ServicesController {
                         email: user?.email || '-',
                         description: `Service ${serviceName} in cluster ${clusterName} updated to new image ${newImageUri}`,
 
+                        container: containerName,
                         service: serviceName,
                         cluster: clusterName,
                         newServiceImage: newImageUri,
-                        oldServiceImage: containerName,
+                        oldServiceImage: oldImageUri,
                     },
                 },
             });
         } catch (error: any) {
+            console.log(error);
             const errorResponse = {
                 error: 'Failed to update service container image',
                 details: error,
