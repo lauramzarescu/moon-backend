@@ -1,9 +1,13 @@
+import moment from 'moment-timezone';
+
 export interface PaginationParams {
     page?: number | string;
     limit?: number | string;
     filters?: Record<string, string>;
     orderBy?: string;
     order?: 'asc' | 'desc';
+    startDate?: string | Date;
+    endDate?: string | Date;
 }
 
 export interface PaginatedResult<T> {
@@ -46,6 +50,8 @@ const dbFieldMapping: ModelFieldMapping = {
         userId: {field: 'userId', type: 'string'},
         organizationId: {field: 'organizationId', type: 'string'},
         userEmail: {field: 'details', type: 'json', jsonPath: 'info.email'},
+        startDate: {field: 'createdAt', type: 'date'},
+        endDate: {field: 'createdAt', type: 'date'},
     },
 };
 
@@ -57,6 +63,9 @@ export class PaginationHandler {
         const orderBy = params.orderBy || 'createdAt';
         const order = params.order || 'desc';
 
+        // Process date range filters
+        const dateFilters = this.processDateFilters(params.startDate, params.endDate);
+
         return {
             skip,
             take: limit,
@@ -64,6 +73,7 @@ export class PaginationHandler {
             limit,
             orderBy,
             order,
+            dateFilters,
         };
     }
 
@@ -91,26 +101,59 @@ export class PaginationHandler {
             return filters;
         }
 
-        Object.keys(queryParams).forEach(param => {
-            if (param.startsWith('filter_')) {
-                const field = param.replace('filter_', '');
-                const mappingConfig = modelMapping[field];
+        // Special handling for date range filters coming from frontend as filter_startDate and filter_endDate
+        const startDateParam = queryParams['filter_startDate'];
+        const endDateParam = queryParams['filter_endDate'];
+        const createdAtRange: Record<string, Date> = {};
 
-                if (mappingConfig) {
-                    const value = queryParams[param];
+        if (startDateParam) {
+            // Use moment to set start of day in UTC to avoid timezone shifting
+            const mStart = moment.tz(String(startDateParam), [moment.ISO_8601, 'YYYY-MM-DD'], true, 'UTC');
+            if (mStart.isValid()) {
+                createdAtRange.gte = mStart.startOf('day').toDate();
+            }
+        }
+        if (endDateParam) {
+            // Use moment to set end of day in UTC to avoid timezone shifting
+            const m = moment.tz(String(endDateParam), moment.ISO_8601, true, 'UTC');
+            const validMoment = m.isValid() ? m : moment.tz(String(endDateParam), 'YYYY-MM-DD', 'UTC');
 
-                    if (mappingConfig.type === 'json' && mappingConfig.jsonPath) {
-                        const dbField = mappingConfig.field;
-                        const jsonPathArray = mappingConfig.jsonPath.split('.');
-
-                        filters[dbField] = {
-                            path: jsonPathArray,
-                            string_contains: this.convertValueToType(value, 'string'),
-                        };
-                    } else {
-                        filters[mappingConfig.field] = this.convertValueToType(value, mappingConfig.type);
-                    }
+            if (validMoment.isValid()) {
+                const endOfDayUtc = validMoment.endOf('day');
+                createdAtRange.lte = endOfDayUtc.toDate();
+            } else {
+                const parsedEnd = this.parseDate(String(endDateParam));
+                if (parsedEnd) {
+                    createdAtRange.lte = moment(parsedEnd).tz('UTC').endOf('day').toDate();
                 }
+            }
+        }
+        if (Object.keys(createdAtRange).length > 0) {
+            filters['createdAt'] = createdAtRange;
+        }
+
+        Object.keys(queryParams).forEach(param => {
+            if (!param.startsWith('filter_')) return;
+
+            const field = param.replace('filter_', '');
+
+            if (field === 'startDate' || field === 'endDate') return;
+
+            const mappingConfig = modelMapping[field];
+            if (!mappingConfig) return;
+
+            const value = queryParams[param];
+
+            if (mappingConfig.type === 'json' && mappingConfig.jsonPath) {
+                const dbField = mappingConfig.field;
+                const jsonPathArray = mappingConfig.jsonPath.split('.');
+
+                filters[dbField] = {
+                    path: jsonPathArray,
+                    string_contains: this.convertValueToType(value, 'string'),
+                };
+            } else {
+                filters[mappingConfig.field] = this.convertValueToType(value, mappingConfig.type);
             }
         });
 
@@ -130,5 +173,61 @@ export class PaginationHandler {
             default:
                 return value;
         }
+    }
+
+    /**
+     * Process date range filters for createdAt field
+     * @param startDate - Optional start date for filtering
+     * @param endDate - Optional end date for filtering
+     * @returns Object with date filters for Prisma where clause, or null if no date filters
+     */
+    private static processDateFilters(startDate?: string | Date, endDate?: string | Date): Record<string, any> | null {
+        if (!startDate && !endDate) {
+            return null;
+        }
+
+        const dateFilter: Record<string, any> = {};
+
+        try {
+            if (startDate) {
+                const parsedStartDate = this.parseDate(startDate);
+                if (parsedStartDate) {
+                    dateFilter.gte = parsedStartDate;
+                }
+            }
+
+            if (endDate) {
+                const endStr = typeof endDate === 'string' ? endDate : endDate.toISOString();
+                const mEnd = moment.tz(endStr, [moment.ISO_8601, 'YYYY-MM-DD'], true, 'UTC');
+                if (mEnd.isValid()) {
+                    dateFilter.lte = mEnd.endOf('day').toDate();
+                }
+            }
+
+            return Object.keys(dateFilter).length > 0 ? {createdAt: dateFilter} : null;
+        } catch (error) {
+            // If date parsing fails, return null to ignore date filters
+            console.warn('Invalid date format provided for date range filtering:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Parse date from string or Date object with validation
+     * @param date - Date to parse
+     * @returns Parsed Date object or null if invalid
+     */
+    private static parseDate(date: string | Date): Date | null {
+        if (date instanceof Date) {
+            return isNaN(date.getTime()) ? null : date;
+        }
+
+        if (typeof date === 'string') {
+            // Try ISO then fallback to YYYY-MM-DD, interpret both in UTC to avoid timezone drift
+            const m = moment.tz(date, [moment.ISO_8601, 'YYYY-MM-DD'], true, 'UTC');
+            return m.isValid() ? m.toDate() : null;
+        }
+
+        return null;
     }
 }

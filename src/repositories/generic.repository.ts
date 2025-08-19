@@ -15,11 +15,12 @@ export abstract class GenericRepository<T> {
         params: PaginationParams,
         where: Prisma.Args<T, 'findMany'>['where'] = {}
     ): Promise<PaginatedResult<T>> {
-        const {skip, take, page, limit, orderBy, order} = PaginationHandler.process(params);
+        const {skip, take, page, limit, orderBy, order, dateFilters} = PaginationHandler.process(params);
 
         const whereCondition = {
             ...where,
             ...params.filters,
+            ...(dateFilters || {}),
         };
 
         const [total, data] = await Promise.all([
@@ -42,11 +43,12 @@ export abstract class GenericRepository<T> {
         include: Prisma.Args<T, 'findMany'>['include'],
         where: Prisma.Args<T, 'findMany'>['where'] = {}
     ): Promise<PaginatedResult<T>> {
-        const {skip, take, page, limit, orderBy, order} = PaginationHandler.process(params);
+        const {skip, take, page, limit, orderBy, order, dateFilters} = PaginationHandler.process(params);
 
         const whereCondition = {
             ...where,
             ...params.filters,
+            ...(dateFilters || {}),
         };
 
         const [total, data] = await Promise.all([
