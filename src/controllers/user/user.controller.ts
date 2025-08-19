@@ -7,9 +7,9 @@ import {
     userExportSchema,
     usersImportRequestSchema,
     userUpdateSchema,
-} from './user.schema';
+} from './schemas/user.schema';
 import {AuthService} from '../../services/auth.service';
-import {UserHelper} from './helper';
+import {UserHelper} from './helpers/helper';
 import {PaginationHandler} from '../../utils/pagination.util';
 import {prisma} from '../../config/db.config';
 import bcrypt from 'bcrypt';
@@ -20,7 +20,7 @@ import {EmailService} from '../../services/email.service';
 import crypto from 'crypto';
 import logger from '../../config/logger';
 import {AuditLogRepository} from '../../repositories/audit-log/audit-log.repository';
-import {TwoFactorHelper} from './two-factor.helper';
+import {TwoFactorHelper} from './helpers/two-factor.helper';
 
 export class UserController {
     static userRepository = new UserRepository(prisma);

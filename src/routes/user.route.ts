@@ -7,6 +7,7 @@ import {PermissionEnum} from '../enums/rbac/permission.enum';
 import {requireOrganizationAdminGuard} from '../middlewares/admin-auth.middleware';
 import {userInfoMiddleware} from '../middlewares/user-info.middleware';
 import multer from 'multer';
+import {WebauthnController} from '../controllers/user/webauthn.controller';
 
 const router = express.Router();
 
@@ -80,6 +81,12 @@ router.post(
 );
 
 // Password management routes
+router.get(
+    '/change-password/2fa-status',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    PasswordController.getPasswordChange2FAStatus
+);
 router.post(
     '/change-password',
     userInfoMiddleware,
@@ -91,6 +98,18 @@ router.post(
     userInfoMiddleware,
     isAuthenticatedGuard([PermissionEnum.USER_READ]),
     PasswordController.changePasswordWith2FA
+);
+router.post(
+    '/webauthn/change-password/start',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    PasswordController.startPasswordChangeWebAuthn
+);
+router.post(
+    '/webauthn/change-password/complete',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    PasswordController.changePasswordWithWebAuthn
 );
 router.post('/forgot-password', PasswordController.forgotPassword);
 router.post('/reset-password', PasswordController.resetPassword);
@@ -130,5 +149,67 @@ router.post(
 );
 router.post('/admin/2fa/reset/:id', userInfoMiddleware, TwoFactorController.adminReset2FAForUser);
 router.post('/2fa/reset/confirm/:token', TwoFactorController.confirm2FAReset);
+
+router.post(
+    '/2fa/yubikey/setup',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    TwoFactorController.setupYubikey
+);
+router.post('/2fa/yubikey/verify', TwoFactorController.verifyYubikey);
+router.get(
+    '/2fa/yubikey/list',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    TwoFactorController.getUserYubikeys
+);
+router.delete(
+    '/2fa/yubikey/:id',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    TwoFactorController.removeYubikey
+);
+router.put(
+    '/2fa/yubikey/update',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    TwoFactorController.updateYubikey
+);
+router.post(
+    '/2fa/method',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    TwoFactorController.setTwoFactorMethod
+);
+
+// WebAuthn routes
+router.post(
+    '/2fa/webauthn/registration/start',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    WebauthnController.startWebAuthnRegistration
+);
+router.post(
+    '/2fa/webauthn/registration/complete',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    WebauthnController.completeWebAuthnRegistration
+);
+router.post('/2fa/webauthn/authentication/start', WebauthnController.startWebAuthnAuthentication);
+router.post('/2fa/webauthn/authentication/complete', WebauthnController.completeWebAuthnAuthentication);
+
+// WebAuthn re-authentication routes (for already authenticated users)
+router.post(
+    '/2fa/webauthn/start',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    WebauthnController.startWebAuthnReAuthentication
+);
+router.post(
+    '/2fa/webauthn/complete',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.USER_READ]),
+    WebauthnController.completeWebAuthnReAuthentication
+);
 
 export default router;
