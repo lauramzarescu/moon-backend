@@ -33,12 +33,14 @@ export class AuditLogController {
     static getAllPaginated = async (req: express.Request, res: express.Response) => {
         try {
             const requesterUser = res.locals.user as User;
+            const tz = req.query.tz?.toString() || 'UTC';
             const filters = PaginationHandler.translateFilters(req.query, 'auditLog');
 
             const paginatedUsers = await this.auditHelper.getAuthorizedPaginated(requesterUser, {
                 page: Number(req.query.page) || 1,
                 limit: Number(req.query.limit) || 50,
                 filters,
+                tz,
                 orderBy: String(req.query.orderBy || 'createdAt'),
                 order: (req.query.order as 'asc' | 'desc') || 'desc',
             });

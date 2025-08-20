@@ -11,8 +11,8 @@ export class AuditLogWidgetsController {
     static deploymentsCount = async (req: express.Request, res: express.Response) => {
         try {
             const user = res.locals.user as User;
+            const tz = req.query.tz?.toString() || 'UTC';
             const filters = PaginationHandler.translateFilters(req.query, 'auditLog');
-            console.log(filters);
 
             const params = {
                 page: 1,
@@ -21,6 +21,7 @@ export class AuditLogWidgetsController {
                     ...filters,
                     action: AuditLogEnum.AWS_SERVICE_UPDATED,
                 },
+                tz,
                 orderBy: 'createdAt',
                 order: 'desc' as const,
             };
@@ -35,8 +36,10 @@ export class AuditLogWidgetsController {
     static deploymentsTimeline = async (req: express.Request, res: express.Response) => {
         try {
             const user = res.locals.user as User;
-            const startDate = moment.tz(req.query?.filter_startDate, 'UTC') || null;
-            const endDate = moment.tz(req.query?.filter_endDate, 'UTC') || null;
+            const tz = req.query.tz?.toString() || 'UTC';
+            const startDate = moment.tz(req.query?.filter_startDate, tz) || null;
+            const endDate = moment.tz(req.query?.filter_endDate, tz) || null;
+
             if (!startDate || !endDate) {
                 res.status(400).json({message: 'Start and end date are required'});
                 return;
@@ -70,6 +73,7 @@ export class AuditLogWidgetsController {
                         ...filters,
                         action: AuditLogEnum.AWS_SERVICE_UPDATED,
                     },
+                    tz,
                     orderBy: 'createdAt',
                     order: 'asc',
                 });

@@ -8,6 +8,7 @@ export interface PaginationParams {
     order?: 'asc' | 'desc';
     startDate?: string | Date;
     endDate?: string | Date;
+    tz?: string;
 }
 
 export interface PaginatedResult<T> {
@@ -62,9 +63,10 @@ export class PaginationHandler {
         const skip = (page - 1) * limit;
         const orderBy = params.orderBy || 'createdAt';
         const order = params.order || 'desc';
+        const tz = params.tz || 'UTC';
 
         // Process date range filters
-        const dateFilters = this.processDateFilters(params.startDate, params.endDate);
+        const dateFilters = this.processDateFilters(params.startDate, params.endDate, tz);
 
         return {
             skip,
@@ -104,27 +106,29 @@ export class PaginationHandler {
         // Special handling for date range filters coming from frontend as filter_startDate and filter_endDate
         const startDateParam = queryParams['filter_startDate'];
         const endDateParam = queryParams['filter_endDate'];
+        const tz = queryParams['tz'] || 'UTC';
         const createdAtRange: Record<string, Date> = {};
 
         if (startDateParam) {
             // Use moment to set start of day in UTC to avoid timezone shifting
-            const mStart = moment.tz(String(startDateParam), [moment.ISO_8601, 'YYYY-MM-DD'], true, 'UTC');
+            const mStart = moment.tz(String(startDateParam), [moment.ISO_8601, 'YYYY-MM-DD'], true, tz);
             if (mStart.isValid()) {
                 createdAtRange.gte = mStart.startOf('day').toDate();
             }
         }
         if (endDateParam) {
             // Use moment to set end of day in UTC to avoid timezone shifting
-            const m = moment.tz(String(endDateParam), moment.ISO_8601, true, 'UTC');
-            const validMoment = m.isValid() ? m : moment.tz(String(endDateParam), 'YYYY-MM-DD', 'UTC');
+            const m = moment.tz(String(endDateParam), moment.ISO_8601, true, tz);
+            const validMoment = m.isValid() ? m : moment.tz(String(endDateParam), 'YYYY-MM-DD', tz);
 
             if (validMoment.isValid()) {
                 const endOfDayUtc = validMoment.endOf('day');
+
                 createdAtRange.lte = endOfDayUtc.toDate();
             } else {
-                const parsedEnd = this.parseDate(String(endDateParam));
+                const parsedEnd = this.parseDate(String(endDateParam), tz);
                 if (parsedEnd) {
-                    createdAtRange.lte = moment(parsedEnd).tz('UTC').endOf('day').toDate();
+                    createdAtRange.lte = moment(parsedEnd).tz(tz).endOf('day').toDate();
                 }
             }
         }
@@ -179,9 +183,14 @@ export class PaginationHandler {
      * Process date range filters for createdAt field
      * @param startDate - Optional start date for filtering
      * @param endDate - Optional end date for filtering
+     * @param tz
      * @returns Object with date filters for Prisma where clause, or null if no date filters
      */
-    private static processDateFilters(startDate?: string | Date, endDate?: string | Date): Record<string, any> | null {
+    private static processDateFilters(
+        startDate?: string | Date,
+        endDate?: string | Date,
+        tz: string = 'UTC'
+    ): Record<string, any> | null {
         if (!startDate && !endDate) {
             return null;
         }
@@ -190,7 +199,7 @@ export class PaginationHandler {
 
         try {
             if (startDate) {
-                const parsedStartDate = this.parseDate(startDate);
+                const parsedStartDate = this.parseDate(startDate, tz);
                 if (parsedStartDate) {
                     dateFilter.gte = parsedStartDate;
                 }
@@ -198,7 +207,7 @@ export class PaginationHandler {
 
             if (endDate) {
                 const endStr = typeof endDate === 'string' ? endDate : endDate.toISOString();
-                const mEnd = moment.tz(endStr, [moment.ISO_8601, 'YYYY-MM-DD'], true, 'UTC');
+                const mEnd = moment.tz(endStr, [moment.ISO_8601, 'YYYY-MM-DD'], true, tz);
                 if (mEnd.isValid()) {
                     dateFilter.lte = mEnd.endOf('day').toDate();
                 }
@@ -215,16 +224,17 @@ export class PaginationHandler {
     /**
      * Parse date from string or Date object with validation
      * @param date - Date to parse
+     * @param tz
      * @returns Parsed Date object or null if invalid
      */
-    private static parseDate(date: string | Date): Date | null {
+    private static parseDate(date: string | Date, tz: string = 'UTC'): Date | null {
         if (date instanceof Date) {
             return isNaN(date.getTime()) ? null : date;
         }
 
         if (typeof date === 'string') {
             // Try ISO then fallback to YYYY-MM-DD, interpret both in UTC to avoid timezone drift
-            const m = moment.tz(date, [moment.ISO_8601, 'YYYY-MM-DD'], true, 'UTC');
+            const m = moment.tz(date, [moment.ISO_8601, 'YYYY-MM-DD'], true, tz);
             return m.isValid() ? m.toDate() : null;
         }
 
