@@ -53,6 +53,7 @@ export enum AuditLogEnum {
     AWS_INFO_GENERATED = 'aws:info:generated',
 
     AWS_SERVICE_CREATED = 'aws:service:created',
+    AWS_SERVICE_COUNT_UPDATED = 'aws:service:count:updated',
     AWS_SERVICE_UPDATED = 'aws:service:updated',
     AWS_SERVICE_DELETED = 'aws:service:deleted',
     AWS_SERVICE_RESTARTED = 'aws:service:restarted',

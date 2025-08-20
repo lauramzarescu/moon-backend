@@ -7,7 +7,6 @@ import {AuditLogHelper} from '../audit-log/audit-log.helper';
 import {UserRepository} from '../../repositories/user/user.repository';
 import {prisma} from '../../config/db.config';
 import {User} from '@prisma/client';
-import {log} from 'console';
 
 export class ServicesController {
     private readonly ecsService: ECSService;
@@ -37,7 +36,7 @@ export class ServicesController {
             await this.auditHelper.create({
                 userId: user?.id || '-',
                 organizationId: user?.organizationId || '-',
-                action: AuditLogEnum.AWS_SERVICE_UPDATED,
+                action: AuditLogEnum.AWS_SERVICE_COUNT_UPDATED,
                 details: {
                     ip: (req as any).ipAddress,
                     info: {
