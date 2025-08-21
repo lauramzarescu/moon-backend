@@ -21,6 +21,7 @@ import {JobSchedulerService} from './services/scheduler/job-scheduler.service';
 import {closePgBossInstance} from './config/pg-boss.config';
 import logger from './config/logger';
 import auditLogsRoute from './routes/audit-logs.route';
+import auditLogWidgetsRoute from './routes/audit-log-widgets.route';
 
 dotenv.config();
 
@@ -75,6 +76,7 @@ router.use('/v1/access-control', accessControlRoute);
 router.use('/v1/aws', awsRoutes);
 router.use('/v1/actions', actionRoute);
 router.use('/v1/audit-logs', auditLogsRoute);
+router.use('/v1/audit-logs/widgets', auditLogWidgetsRoute);
 
 app.use(router);
 
