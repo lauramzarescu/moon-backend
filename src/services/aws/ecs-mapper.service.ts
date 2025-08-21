@@ -16,6 +16,7 @@ export class ECSMapperService {
 
         return {
             name: service.serviceName ?? 'N/A',
+            arn: service.serviceArn ?? 'N/A',
             clusterName: clusterName,
             isClusterProduction,
             desiredCount: service.desiredCount ?? 0,

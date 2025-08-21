@@ -8,18 +8,19 @@ datasource db {
 }
 
 model Organization {
-  id            String           @id @default(uuid())
-  type          OrganizationType @default(local)
-  name          String
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  accessControl AccessControl[]
-  actions       Action[]
-  auditLogs     AuditLog[]
-  saml          SamlConfig?
-  services      ServicesConfig[]
-  users         User[]
-  enforce2FA    Boolean          @default(false)
+  id                  String              @id @default(uuid())
+  type                OrganizationType    @default(local)
+  name                String
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  accessControl       AccessControl[]
+  actions             Action[]
+  auditLogs           AuditLog[]
+  saml                SamlConfig?
+  services            ServicesConfig[]
+  users               User[]
+  enforce2FA          Boolean             @default(false)
+  serviceRepositories ServiceRepository[]
 }
 
 model User {
@@ -105,6 +106,19 @@ model ServicesConfig {
   updatedAt      DateTime     @updatedAt
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
+}
+
+model ServiceRepository {
+  id             String       @id @default(uuid())
+  serviceArn     String
+  owner          String
+  repo           String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, serviceArn], name: "organizationId_serviceArn")
 }
 
 model AccessControl {

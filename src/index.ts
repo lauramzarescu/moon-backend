@@ -22,6 +22,9 @@ import {closePgBossInstance} from './config/pg-boss.config';
 import logger from './config/logger';
 import auditLogsRoute from './routes/audit-logs.route';
 import auditLogWidgetsRoute from './routes/audit-log-widgets.route';
+import githubRoute from './routes/github.route';
+import serviceRepositoryRoute from './routes/service-repository.route';
+import serviceDeploymentRoute from './routes/service-deployment.route';
 
 dotenv.config();
 
@@ -77,6 +80,9 @@ router.use('/v1/aws', awsRoutes);
 router.use('/v1/actions', actionRoute);
 router.use('/v1/audit-logs', auditLogsRoute);
 router.use('/v1/audit-logs/widgets', auditLogWidgetsRoute);
+router.use('/v1/github/services', serviceRepositoryRoute);
+router.use('/v1/github/deployments', serviceDeploymentRoute);
+router.use('/v1/github', githubRoute);
 
 app.use(router);
 
