@@ -39,7 +39,7 @@ export class GitHubService {
             const client = this.getClient();
             const url = org ? `/orgs/${encodeURIComponent(org)}/repos` : '/user/repos';
             const {data} = await client.get(url, {
-                params: {per_page: 100, sort: 'updated'},
+                params: {per_page: 1000, sort: 'updated'},
             });
 
             return data.map((r: any) => ({
@@ -57,6 +57,32 @@ export class GitHubService {
                 error?.response?.data?.message ||
                     error?.message ||
                     'Failed to fetch GitHub repositories from GitHub API'
+            );
+        }
+    }
+
+    static async fetchBranches(repo: string, owner = process.env.GITHUB_OWNER) {
+        try {
+            if (!owner) {
+                throw new Error('GITHUB_OWNER is not set');
+            }
+
+            const client = this.getClient();
+            const {data} = await client.get(
+                `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/branches`,
+                {
+                    params: {per_page: 1000},
+                }
+            );
+
+            return data.map((b: any) => ({
+                name: b.name,
+                commit: b.commit,
+            }));
+        } catch (error: any) {
+            logger.error('Failed to fetch GitHub branches', error);
+            throw new Error(
+                error?.response?.data?.message || error?.message || 'Failed to fetch GitHub branches from GitHub API'
             );
         }
     }

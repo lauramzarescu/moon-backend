@@ -93,7 +93,7 @@ export class EnvironmentVariableService {
 
         const currentEnvVars = await this.getServiceEnvironmentVariables(clusterName, serviceName, containerName);
 
-        // Create a map for quick lookup
+        // Map for quick lookup
         const updatedEnvMap = new Map(updatedEnvironmentVariables.map(env => [env.name, env.value]));
 
         // Check if all variables to edit exist

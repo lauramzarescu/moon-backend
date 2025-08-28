@@ -1,7 +1,9 @@
 import {
+    DescribeServicesCommand,
     DescribeTaskDefinitionCommand,
     DescribeTaskDefinitionCommandOutput,
     ECSClient,
+    ListTaskDefinitionsCommand,
     RegisterTaskDefinitionCommand,
 } from '@aws-sdk/client-ecs';
 import {backoffAndRetry} from '../../utils/backoff.util';
@@ -100,5 +102,85 @@ export class TaskDefinitionService {
         }
 
         return newTaskDefArn;
+    }
+
+    /**
+     * List all task definition revisions for a given family
+     */
+    public async listTaskDefinitionRevisions(family: string): Promise<string[]> {
+        const response = await backoffAndRetry(() =>
+            this.ecsClient.send(
+                new ListTaskDefinitionsCommand({
+                    familyPrefix: family,
+                    status: 'ACTIVE',
+                    sort: 'DESC', // Most recent first
+                })
+            )
+        );
+
+        return response.taskDefinitionArns || [];
+    }
+
+    /**
+     * Get task definition family name from ARN or service name
+     */
+    public extractFamilyFromArn(taskDefinitionArn: string): string {
+        // ARN format: arn:aws:ecs:region:account:task-definition/family:revision
+        const parts = taskDefinitionArn.split('/');
+        if (parts.length >= 2) {
+            const familyRevision = parts[parts.length - 1];
+            return familyRevision.split(':')[0];
+        }
+        throw new Error(`Invalid task definition ARN format: ${taskDefinitionArn}`);
+    }
+
+    /**
+     * Get task definition revisions with metadata for a service
+     */
+    public async getTaskDefinitionVersionsForService(
+        clusterName: string,
+        serviceName: string
+    ): Promise<
+        Array<{
+            revision: number;
+            arn: string;
+            registeredAt: string;
+            status: string;
+            family: string;
+        }>
+    > {
+        // First get the current service to find the task definition family
+        const serviceResponse = await backoffAndRetry(() =>
+            this.ecsClient.send(
+                new DescribeServicesCommand({
+                    cluster: clusterName,
+                    services: [serviceName],
+                })
+            )
+        );
+
+        const service = serviceResponse.services?.[0];
+        if (!service?.taskDefinition) {
+            throw new Error(`Service ${serviceName} not found in cluster ${clusterName}`);
+        }
+
+        const family = this.extractFamilyFromArn(service.taskDefinition);
+        const revisionArns = await this.listTaskDefinitionRevisions(family);
+
+        // Get detailed information for each revision
+        const revisionDetails = await Promise.all(
+            revisionArns.map(async arn => {
+                const taskDef = await this.getTaskDefinition(arn);
+                return {
+                    revision: taskDef.taskDefinition?.revision || 0,
+                    arn: arn,
+                    registeredAt: taskDef.taskDefinition?.registeredAt?.toISOString() || '',
+                    status: taskDef.taskDefinition?.status || 'UNKNOWN',
+                    family: taskDef.taskDefinition?.family || family,
+                };
+            })
+        );
+
+        return revisionDetails.sort((a, b) => b.revision - a.revision);
     }
 }
