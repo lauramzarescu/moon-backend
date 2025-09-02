@@ -73,9 +73,9 @@ export class ECSMapperService {
                         })) ?? [],
                     environmentFiles: container.environmentFiles ?? [],
                     secrets:
-                        container.secrets?.map((env: {name: string; valueFrom: string}) => ({
-                            name: env.name ?? '',
-                            value: env.valueFrom ?? '',
+                        container.secrets?.map((secret: {name: string; valueFrom: string}) => ({
+                            name: secret.name ?? '',
+                            valueFrom: secret.valueFrom ?? '',
                         })) ?? [],
                 },
             })) ?? []

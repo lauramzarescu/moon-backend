@@ -2,10 +2,7 @@ import {ECSClient} from '@aws-sdk/client-ecs';
 import {ClusterInterface} from '../../interfaces/aws-entities/cluster.interface';
 import {ServiceInterface} from '../../interfaces/aws-entities/service.interface';
 import {ScheduledTaskInterface} from '../../interfaces/aws-entities/scheduled-task.interface';
-import {
-    EnvironmentVariable,
-    EnvironmentVariableOperation,
-} from '../../interfaces/aws-entities/environment-variable.interface';
+import {EnvironmentVariable, Secret} from '../../interfaces/aws-entities/environment-variable.interface';
 import {ClusterManagementService} from './cluster-management.service';
 import {ServiceManagementService} from './service-management.service';
 import {DeploymentMonitorService} from './deployment-monitor.service';
@@ -112,70 +109,72 @@ export class ECSService {
     };
 
     // Environment Variable Management Methods
-
     /**
-     * Get environment variables for a service container
-     */
-    public getServiceEnvironmentVariables = async (
-        clusterName: string,
-        serviceName: string,
-        containerName: string
-    ): Promise<EnvironmentVariable[]> => {
-        return await this.environmentVariableService.getServiceEnvironmentVariables(
-            clusterName,
-            serviceName,
-            containerName
-        );
-    };
-
-    /**
-     * Add environment variables to a service container
+     * Add environment variables and/or secrets to a service container
      */
     public addEnvironmentVariables = async (
         clusterName: string,
         serviceName: string,
         containerName: string,
-        environmentVariables: EnvironmentVariable[]
-    ): Promise<string> => {
+        environmentVariables: EnvironmentVariable[] = [],
+        secrets: Secret[] = []
+    ): Promise<{
+        taskDefinitionArn: string;
+        addedVariables: number;
+        addedSecrets: number;
+    }> => {
         return await this.environmentVariableService.addEnvironmentVariables(
             clusterName,
             serviceName,
             containerName,
-            environmentVariables
+            environmentVariables,
+            secrets
         );
     };
 
     /**
-     * Edit existing environment variables in a service container
+     * Edit existing environment variables and/or secrets in a service container
      */
     public editEnvironmentVariables = async (
         clusterName: string,
         serviceName: string,
         containerName: string,
-        environmentVariables: EnvironmentVariable[]
-    ): Promise<string> => {
+        environmentVariables: EnvironmentVariable[] = [],
+        secrets: Secret[] = []
+    ): Promise<{
+        taskDefinitionArn: string;
+        updatedVariables: number;
+        updatedSecrets: number;
+    }> => {
         return await this.environmentVariableService.editEnvironmentVariables(
             clusterName,
             serviceName,
             containerName,
-            environmentVariables
+            environmentVariables,
+            secrets
         );
     };
 
     /**
-     * Remove environment variables from a service container
+     * Remove environment variables and/or secrets from a service container
      */
     public removeEnvironmentVariables = async (
         clusterName: string,
         serviceName: string,
         containerName: string,
-        variableNames: string[]
-    ): Promise<string> => {
+        variableNames: string[] = [],
+        secretNames: string[] = []
+    ): Promise<{
+        taskDefinitionArn: string;
+        removedVariables: number;
+        removedSecrets: number;
+    }> => {
         return await this.environmentVariableService.removeEnvironmentVariables(
             clusterName,
             serviceName,
             containerName,
-            variableNames
+            variableNames,
+            secretNames
         );
     };
 
@@ -193,21 +192,6 @@ export class ECSService {
             serviceName,
             containerName,
             environmentVariables
-        );
-    };
-
-    /**
-     * Bulk update environment variables for multiple containers in a service
-     */
-    public bulkUpdateEnvironmentVariables = async (
-        clusterName: string,
-        serviceName: string,
-        operations: EnvironmentVariableOperation[]
-    ): Promise<string> => {
-        return await this.environmentVariableService.bulkUpdateEnvironmentVariables(
-            clusterName,
-            serviceName,
-            operations
         );
     };
 }

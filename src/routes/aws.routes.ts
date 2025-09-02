@@ -72,6 +72,12 @@ router.post(
 );
 
 router.post(
+    '/services/environment-variables/move',
+    isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_WRITE]),
+    environmentVariableController.moveVariablesBetweenServices
+);
+
+router.post(
     '/services/environment-variables/rollback',
     isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_WRITE]),
     environmentVariableController.rollbackToVersion
@@ -81,12 +87,6 @@ router.get(
     '/services/environment-variables/compare',
     isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_READ]),
     environmentVariableController.compareVersions
-);
-
-router.put(
-    '/services/environment-variables/bulk-update-versioning',
-    isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_WRITE]),
-    environmentVariableController.bulkUpdateWithVersioning
 );
 
 // router.put(

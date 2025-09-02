@@ -2,6 +2,7 @@ import {ClusterInterface} from '../interfaces/aws-entities/cluster.interface';
 import {ServiceInterface} from '../interfaces/aws-entities/service.interface';
 import {ScheduledTaskInterface} from '../interfaces/aws-entities/scheduled-task.interface';
 
+
 const generateScheduledTask = (index: number): ScheduledTaskInterface => ({
     name: `scheduled-task-${index}`,
     cron: `0 ${Math.floor(Math.random() * 24)} * * *`,
@@ -50,7 +51,12 @@ const generateService = (index: number): ServiceInterface => ({
                     {name: 'PORT', value: String(3000 + index)},
                 ],
                 environmentFiles: [],
-                secrets: [],
+                secrets: [
+                    {
+                        name: 'SECRET_KEY',
+                        valueFrom: `arn:aws:secretsmanager:us-east-1:123456789:secret:secret-${index}`,
+                    },
+                ],
             },
         },
     ],

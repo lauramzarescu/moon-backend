@@ -3,6 +3,11 @@ export interface EnvironmentVariable {
     value: string;
 }
 
+export interface Secret {
+    name: string;
+    valueFrom: string;
+}
+
 export interface EnvironmentVariableOperation {
     containerName: string;
     environmentVariables: EnvironmentVariable[];

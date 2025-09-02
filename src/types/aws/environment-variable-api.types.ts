@@ -1,33 +1,40 @@
 import {z} from 'zod';
 import {
     addEnvironmentVariablesSchema,
-    bulkUpdateEnvironmentVariablesSchema,
     bulkUpdateWithVersioningSchema,
     compareVersionsSchema,
     copyVariablesBetweenServicesSchema,
+    copyVariablesByServiceIdBodySchema,
+    copyVariablesByServiceIdParamsSchema,
     editEnvironmentVariablesSchema,
     environmentVariableSchema,
     getVariablesFromVersionSchema,
     getVersionsListSchema,
+    moveVariablesBetweenServicesSchema,
+    moveVariablesByServiceIdBodySchema,
     removeEnvironmentVariablesSchema,
     replaceEnvironmentVariablesSchema,
     rollbackToVersionSchema,
+    secretSchema,
 } from '../../controllers/aws/environment-variable.schema';
+import {BulkOperationType, ComparisonStatus} from '../../enums/environment-variable/environment-variable.enum';
 
 // Base types
 export type EnvironmentVariable = z.infer<typeof environmentVariableSchema>;
+export type Secret = z.infer<typeof secretSchema>;
 
-// Request types (inferred from schemas)
 export type AddEnvironmentVariablesRequest = z.infer<typeof addEnvironmentVariablesSchema>;
 export type EditEnvironmentVariablesRequest = z.infer<typeof editEnvironmentVariablesSchema>;
 export type RemoveEnvironmentVariablesRequest = z.infer<typeof removeEnvironmentVariablesSchema>;
 export type ReplaceEnvironmentVariablesRequest = z.infer<typeof replaceEnvironmentVariablesSchema>;
-export type BulkUpdateEnvironmentVariablesRequest = z.infer<typeof bulkUpdateEnvironmentVariablesSchema>;
 
-// Versioning request types
 export type GetVersionsListRequest = z.infer<typeof getVersionsListSchema>;
 export type GetVariablesFromVersionRequest = z.infer<typeof getVariablesFromVersionSchema>;
 export type CopyVariablesBetweenServicesRequest = z.infer<typeof copyVariablesBetweenServicesSchema>;
+export type CopyVariablesByServiceIdParamsRequest = z.infer<typeof copyVariablesByServiceIdParamsSchema>;
+export type CopyVariablesByServiceIdBodyRequest = z.infer<typeof copyVariablesByServiceIdBodySchema>;
+export type MoveVariablesBetweenServicesRequest = z.infer<typeof moveVariablesBetweenServicesSchema>;
+export type MoveVariablesByServiceIdBodyRequest = z.infer<typeof moveVariablesByServiceIdBodySchema>;
 export type RollbackToVersionRequest = z.infer<typeof rollbackToVersionSchema>;
 export type CompareVersionsRequest = z.infer<typeof compareVersionsSchema>;
 export type BulkUpdateWithVersioningRequest = z.infer<typeof bulkUpdateWithVersioningSchema>;
@@ -42,17 +49,21 @@ export interface BaseEnvironmentVariableResponse {
 
 export interface AddEnvironmentVariablesResponse extends BaseEnvironmentVariableResponse {
     addedVariables: number;
+    addedSecrets: number;
     newTaskDefinitionArn: string;
 }
 
 export interface EditEnvironmentVariablesResponse extends BaseEnvironmentVariableResponse {
     updatedVariables: number;
+    updatedSecrets: number;
     newTaskDefinitionArn: string;
 }
 
 export interface RemoveEnvironmentVariablesResponse extends BaseEnvironmentVariableResponse {
     removedVariables: number;
+    removedSecrets: number;
     variableNames: string[];
+    secretNames: string[];
     newTaskDefinitionArn: string;
 }
 
@@ -103,6 +114,23 @@ export interface CopyVariablesBetweenServicesResponse {
     source: ServiceInfo;
     target: Omit<ServiceInfo, 'revision'>;
     newTaskDefinitionArn: string;
+    copiedVariables?: {
+        environmentVariables: number;
+        secrets: number;
+        variableNames?: string[];
+    };
+}
+
+export interface MoveVariablesBetweenServicesResponse {
+    message: string;
+    source: ServiceInfo;
+    target: ServiceInfo;
+    newTaskDefinitionArn: string;
+    movedVariables: {
+        environmentVariables: number;
+        secrets: number;
+        variableNames: string[];
+    };
 }
 
 export interface RollbackToVersionResponse extends BaseEnvironmentVariableResponse {
@@ -114,6 +142,7 @@ export interface VariableChange {
     name: string;
     oldValue: string;
     newValue: string;
+    status: ComparisonStatus;
 }
 
 export interface VersionComparison {
@@ -144,115 +173,11 @@ export interface ErrorResponse {
     details: string;
 }
 
-// Operation types for bulk updates
-export type BulkOperationType = 'add' | 'edit' | 'replace' | 'remove';
-
 export interface BulkOperation {
     containerName: string;
     operation: BulkOperationType;
     environmentVariables: EnvironmentVariable[];
     variableNames?: string[];
+    secrets: Secret[];
+    secretNames?: string[];
 }
-
-// API endpoint definitions
-export interface EnvironmentVariableEndpoints {
-    // Existing endpoints
-    addEnvironmentVariables: {
-        method: 'POST';
-        path: '/services/environment-variables';
-        request: AddEnvironmentVariablesRequest;
-        response: AddEnvironmentVariablesResponse;
-    };
-
-    editEnvironmentVariables: {
-        method: 'PUT';
-        path: '/services/environment-variables';
-        request: EditEnvironmentVariablesRequest;
-        response: EditEnvironmentVariablesResponse;
-    };
-
-    removeEnvironmentVariables: {
-        method: 'DELETE';
-        path: '/services/environment-variables';
-        request: RemoveEnvironmentVariablesRequest;
-        response: RemoveEnvironmentVariablesResponse;
-    };
-
-    replaceEnvironmentVariables: {
-        method: 'PUT';
-        path: '/services/environment-variables/replace';
-        request: ReplaceEnvironmentVariablesRequest;
-        response: ReplaceEnvironmentVariablesResponse;
-    };
-
-    bulkUpdateEnvironmentVariables: {
-        method: 'PUT';
-        path: '/services/environment-variables/bulk-update';
-        request: BulkUpdateEnvironmentVariablesRequest;
-        response: BulkUpdateEnvironmentVariablesResponse;
-    };
-
-    // Versioning endpoints
-    getVersionsList: {
-        method: 'GET';
-        path: '/services/environment-variables/versions';
-        request: GetVersionsListRequest;
-        response: GetVersionsListResponse;
-    };
-
-    getVariablesFromVersion: {
-        method: 'GET';
-        path: '/services/environment-variables/version';
-        request: GetVariablesFromVersionRequest;
-        response: GetVariablesFromVersionResponse;
-    };
-
-    copyVariablesBetweenServices: {
-        method: 'POST';
-        path: '/services/environment-variables/copy';
-        request: CopyVariablesBetweenServicesRequest;
-        response: CopyVariablesBetweenServicesResponse;
-    };
-
-    rollbackToVersion: {
-        method: 'POST';
-        path: '/services/environment-variables/rollback';
-        request: RollbackToVersionRequest;
-        response: RollbackToVersionResponse;
-    };
-
-    compareVersions: {
-        method: 'GET';
-        path: '/services/environment-variables/compare';
-        request: CompareVersionsRequest;
-        response: CompareVersionsResponse;
-    };
-
-    bulkUpdateWithVersioning: {
-        method: 'PUT';
-        path: '/services/environment-variables/bulk-update-versioning';
-        request: BulkUpdateWithVersioningRequest;
-        response: BulkUpdateWithVersioningResponse;
-    };
-}
-
-// Type guards for runtime type checking
-export const isErrorResponse = (response: any): response is ErrorResponse => {
-    return response && typeof response.error === 'string' && typeof response.details === 'string';
-};
-
-export const isEnvironmentVariable = (obj: any): obj is EnvironmentVariable => {
-    return obj && typeof obj.name === 'string' && typeof obj.value === 'string';
-};
-
-export const isEnvironmentVariableVersion = (obj: any): obj is EnvironmentVariableVersion => {
-    return (
-        obj &&
-        typeof obj.revision === 'number' &&
-        typeof obj.arn === 'string' &&
-        typeof obj.registeredAt === 'string' &&
-        typeof obj.status === 'string' &&
-        typeof obj.family === 'string' &&
-        Array.isArray(obj.environmentVariables)
-    );
-};
