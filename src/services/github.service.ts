@@ -39,7 +39,10 @@ export class GitHubService {
             const client = this.getClient();
             const url = org ? `/orgs/${encodeURIComponent(org)}/repos` : '/user/repos';
             const {data} = await client.get(url, {
-                params: {per_page: 1000, sort: 'updated'},
+                params: {
+                    per_page: 1000,
+                    sort: 'updated',
+                },
             });
 
             return data.map((r: any) => ({
@@ -71,7 +74,9 @@ export class GitHubService {
             const {data} = await client.get(
                 `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/branches`,
                 {
-                    params: {per_page: 1000},
+                    params: {
+                        per_page: 1000,
+                    },
                 }
             );
 

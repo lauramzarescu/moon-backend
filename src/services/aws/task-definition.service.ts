@@ -108,15 +108,36 @@ export class TaskDefinitionService {
      * List all task definition revisions for a given family
      */
     public async listTaskDefinitionRevisions(family: string): Promise<string[]> {
+        let hasMore = true; // Flag to check if there are more results using the nextToken field
+
         const response = await backoffAndRetry(() =>
             this.ecsClient.send(
                 new ListTaskDefinitionsCommand({
                     familyPrefix: family,
                     status: 'ACTIVE',
-                    sort: 'DESC', // Most recent first
+                    sort: 'DESC',
                 })
             )
         );
+        hasMore = response.nextToken !== undefined;
+
+        while (hasMore) {
+            const nextResponse = await backoffAndRetry(() =>
+                this.ecsClient.send(
+                    new ListTaskDefinitionsCommand({
+                        familyPrefix: family,
+                        status: 'ACTIVE',
+                        sort: 'DESC',
+                        nextToken: response.nextToken,
+                    })
+                )
+            );
+            hasMore = nextResponse.nextToken !== undefined;
+            response.taskDefinitionArns = [
+                ...(response.taskDefinitionArns || []),
+                ...(nextResponse.taskDefinitionArns || []),
+            ];
+        }
 
         return response.taskDefinitionArns || [];
     }
@@ -149,7 +170,6 @@ export class TaskDefinitionService {
             family: string;
         }>
     > {
-        // First get the current service to find the task definition family
         const serviceResponse = await backoffAndRetry(() =>
             this.ecsClient.send(
                 new DescribeServicesCommand({
