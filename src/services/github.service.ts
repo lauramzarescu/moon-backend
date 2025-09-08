@@ -74,6 +74,14 @@ export class GitHubService {
             }
 
             const client = this.getClient();
+            const branchesResponse = await client.get(
+                `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/branches`,
+                {
+                    params: {
+                        per_page: 1000,
+                    },
+                }
+            );
             const pullRequestsResponse = await client.get(
                 `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls`,
                 {
@@ -108,7 +116,18 @@ export class GitHubService {
                 })
             );
 
+            const branches = branchesResponse.data.map((b: any) => {
+                return {
+                    name: b.name,
+                    commit: {
+                        sha: b.commit.sha,
+                        url: b.commit.url,
+                    },
+                };
+            });
+
             return {
+                branches,
                 openPullRequests,
             };
         } catch (error: any) {

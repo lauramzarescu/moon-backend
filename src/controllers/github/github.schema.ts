@@ -52,6 +52,7 @@ export const githubCommitInfoSchema = z.object({
 
 export const fetchBranchesResponseSchema = z.object({
     openPullRequests: z.array(githubPullRequestSchema),
+    branches: z.array(githubBranchSchema),
 });
 
 export type GitHubBranch = z.infer<typeof githubBranchSchema>;
