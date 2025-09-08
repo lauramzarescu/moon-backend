@@ -10,6 +10,11 @@ router.use(userInfoMiddleware);
 
 router.get('/repositories', isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_READ]), GitHubController.getRepositories);
 router.get(
+    '/pull-requests/:repo',
+    isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_READ]),
+    GitHubController.getPullRequests
+);
+router.get(
     '/commits/:repo',
     isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_READ]),
     GitHubController.getLatestCommitDefault

@@ -1,5 +1,6 @@
 import axios, {AxiosInstance} from 'axios';
 import logger from '../config/logger';
+import {FetchBranchesResponse, GitHubPullRequest, GitHubRepository} from '../controllers/github/github.schema';
 
 export interface GitHubCommitInfo {
     sha: string;
@@ -34,7 +35,7 @@ export class GitHubService {
         return this.client;
     }
 
-    static async fetchRepositories(org?: string) {
+    static async fetchRepositories(org?: string): Promise<GitHubRepository[]> {
         try {
             const client = this.getClient();
             const url = org ? `/orgs/${encodeURIComponent(org)}/repos` : '/user/repos';
@@ -45,15 +46,17 @@ export class GitHubService {
                 },
             });
 
-            return data.map((r: any) => ({
-                id: r.id,
-                name: r.name,
-                full_name: r.full_name,
-                private: r.private,
-                owner: r.owner?.login,
-                default_branch: r.default_branch,
-                html_url: r.html_url,
-            }));
+            return data.map(
+                (r: any): GitHubRepository => ({
+                    id: r.id,
+                    name: r.name,
+                    full_name: r.full_name,
+                    private: r.private,
+                    owner: r.owner?.login,
+                    default_branch: r.default_branch,
+                    html_url: r.html_url,
+                })
+            );
         } catch (error: any) {
             logger.error('Failed to fetch GitHub repositories', error);
             throw new Error(
@@ -64,30 +67,56 @@ export class GitHubService {
         }
     }
 
-    static async fetchBranches(repo: string, owner = process.env.GITHUB_OWNER) {
+    static async fetchPullRequests(repo: string, owner = process.env.GITHUB_OWNER): Promise<FetchBranchesResponse> {
         try {
             if (!owner) {
                 throw new Error('GITHUB_OWNER is not set');
             }
 
             const client = this.getClient();
-            const {data} = await client.get(
-                `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/branches`,
+            const pullRequestsResponse = await client.get(
+                `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls`,
                 {
                     params: {
+                        state: 'open',
                         per_page: 1000,
                     },
                 }
             );
 
-            return data.map((b: any) => ({
-                name: b.name,
-                commit: b.commit,
-            }));
+            const openPullRequests: GitHubPullRequest[] = pullRequestsResponse.data.map(
+                (pr: any): GitHubPullRequest => ({
+                    id: pr.id,
+                    number: pr.number,
+                    title: pr.title,
+                    head: {
+                        ref: pr.head.ref,
+                        sha: pr.head.sha,
+                    },
+                    base: {
+                        ref: pr.base.ref,
+                        sha: pr.base.sha,
+                    },
+                    state: pr.state as 'open',
+                    created_at: pr.created_at,
+                    updated_at: pr.updated_at,
+                    html_url: pr.html_url,
+                    user: {
+                        login: pr.user?.login || null,
+                        avatar_url: pr.user?.avatar_url || null,
+                    },
+                })
+            );
+
+            return {
+                openPullRequests,
+            };
         } catch (error: any) {
-            logger.error('Failed to fetch GitHub branches', error);
+            logger.error('Failed to fetch GitHub branches and pull requests', error);
             throw new Error(
-                error?.response?.data?.message || error?.message || 'Failed to fetch GitHub branches from GitHub API'
+                error?.response?.data?.message ||
+                    error?.message ||
+                    'Failed to fetch GitHub branches and pull requests from GitHub API'
             );
         }
     }

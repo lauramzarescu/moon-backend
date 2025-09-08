@@ -2,6 +2,7 @@ import express from 'express';
 import {GitHubService} from '../../services/github.service';
 import {z} from 'zod';
 import logger from '../../config/logger';
+import {fetchBranchesResponseSchema} from './github.schema';
 
 export class GitHubController {
     static getRepositories = async (req: express.Request, res: express.Response) => {
@@ -16,18 +17,21 @@ export class GitHubController {
         }
     };
 
-    static getBranches = async (req: express.Request, res: express.Response) => {
+    static getPullRequests = async (req: express.Request, res: express.Response) => {
         try {
             const paramsSchema = z.object({
                 repo: z.string().min(1),
             });
             const {repo} = paramsSchema.parse(req.params);
-            const branches = await GitHubService.fetchBranches(repo);
+            const result = await GitHubService.fetchPullRequests(repo);
 
-            res.json(branches);
+            // Validate the response against our schema
+            const validatedResult = fetchBranchesResponseSchema.parse(result);
+
+            res.json(validatedResult);
         } catch (error: any) {
             logger.error('Error in getBranches', error);
-            res.status(500).json({message: error?.message || 'Failed to get branches'});
+            res.status(500).json({message: error?.message || 'Failed to get branches and pull requests'});
         }
     };
 
