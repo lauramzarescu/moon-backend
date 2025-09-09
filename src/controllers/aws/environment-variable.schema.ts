@@ -79,6 +79,8 @@ export const getVersionsListSchema = z.object({
     clusterName: z.string().min(1, 'Cluster name is required'),
     serviceName: z.string().min(1, 'Service name is required'),
     containerName: z.string().min(1, 'Container name is required'),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(50).default(10),
 });
 
 export const getVariablesFromVersionSchema = z.object({

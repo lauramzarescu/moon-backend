@@ -29,21 +29,43 @@ export class EnvironmentVariableVersioningService {
     }
 
     /**
-     * Get all environment variable versions for a service container
+     * Get environment variable versions for a service container with pagination
      */
     public async getEnvironmentVariableVersions(
         clusterName: string,
         serviceName: string,
-        containerName: string
-    ): Promise<EnvironmentVariableVersion[]> {
+        containerName: string,
+        page: number = 1,
+        limit: number = 10
+    ): Promise<{
+        versions: EnvironmentVariableVersion[];
+        totalVersions: number;
+        pagination: {
+            page: number;
+            limit: number;
+            totalPages: number;
+            hasNextPage: boolean;
+            hasPreviousPage: boolean;
+        };
+    }> {
         logger.info(
-            `[EnvVarVersioning] Getting environment variable versions for service: ${serviceName}, container: ${containerName}`
+            `[EnvVarVersioning] Getting environment variable versions for service: ${serviceName}, container: ${containerName} (page: ${page}, limit: ${limit})`
         );
 
-        const versions = await this.taskDefinitionService.getTaskDefinitionVersionsForService(clusterName, serviceName);
+        const allVersions = await this.taskDefinitionService.getTaskDefinitionVersionsForService(
+            clusterName,
+            serviceName
+        );
 
-        return await Promise.all(
-            versions.map(async version => {
+        const totalVersions = allVersions.length;
+        const totalPages = Math.ceil(totalVersions / limit);
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+
+        const pageVersions = allVersions.slice(startIndex, endIndex);
+
+        const versionsWithEnvVars = await Promise.all(
+            pageVersions.map(async version => {
                 try {
                     const taskDefResponse = await this.taskDefinitionService.getTaskDefinition(version.arn);
                     const containerDef = taskDefResponse.taskDefinition?.containerDefinitions?.find(
@@ -71,6 +93,18 @@ export class EnvironmentVariableVersioningService {
                 }
             })
         );
+
+        return {
+            versions: versionsWithEnvVars,
+            totalVersions,
+            pagination: {
+                page,
+                limit,
+                totalPages,
+                hasNextPage: page < totalPages,
+                hasPreviousPage: page > 1,
+            },
+        };
     }
 
     /**

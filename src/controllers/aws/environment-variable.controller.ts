@@ -264,12 +264,14 @@ export class EnvironmentVariableController {
 
     public getVersionsList = async (req: express.Request, res: Response) => {
         try {
-            const {clusterName, serviceName, containerName} = getVersionsListSchema.parse(req.query);
+            const {clusterName, serviceName, containerName, page, limit} = getVersionsListSchema.parse(req.query);
 
-            const versions = await this.versioningService.getEnvironmentVariableVersions(
+            const result = await this.versioningService.getEnvironmentVariableVersions(
                 clusterName,
                 serviceName,
-                containerName
+                containerName,
+                page,
+                limit
             );
 
             const response: GetVersionsListResponse = {
@@ -277,8 +279,9 @@ export class EnvironmentVariableController {
                 clusterName,
                 serviceName,
                 containerName,
-                totalVersions: versions.length,
-                versions,
+                totalVersions: result.totalVersions,
+                versions: result.versions,
+                pagination: result.pagination,
             };
 
             res.json(response);

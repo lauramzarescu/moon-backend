@@ -94,6 +94,13 @@ export interface EnvironmentVariableVersion {
 export interface GetVersionsListResponse extends BaseEnvironmentVariableResponse {
     totalVersions: number;
     versions: EnvironmentVariableVersion[];
+    pagination: {
+        page: number;
+        limit: number;
+        totalPages: number;
+        hasNextPage: boolean;
+        hasPreviousPage: boolean;
+    };
 }
 
 export interface GetVariablesFromVersionResponse extends BaseEnvironmentVariableResponse {
