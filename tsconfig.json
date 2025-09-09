@@ -10,7 +10,8 @@
     "rootDir": "./src"
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "prisma.config.ts"
   ],
   "exclude": [
     "node_modules"
