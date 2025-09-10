@@ -1,4 +1,4 @@
-import {ECSClient} from '@aws-sdk/client-ecs';
+import {DescribeServicesCommand, ECSClient} from '@aws-sdk/client-ecs';
 import {TaskDefinitionService} from './task-definition.service';
 import {EnvironmentVariableService} from './environment-variable.service';
 import {EnvironmentVariable, Secret} from '../../interfaces/aws-entities/environment-variable.interface';
@@ -52,25 +52,29 @@ export class EnvironmentVariableVersioningService {
             `[EnvVarVersioning] Getting environment variable versions for service: ${serviceName}, container: ${containerName} (page: ${page}, limit: ${limit})`
         );
 
-        const allVersions = await this.taskDefinitionService.getTaskDefinitionVersionsForService(
-            clusterName,
-            serviceName
+        // Get service family once (no listing of all revisions with describes)
+        const serviceResponse = await this.ecsClient.send(
+            new DescribeServicesCommand({cluster: clusterName, services: [serviceName]})
         );
+        const service = serviceResponse.services?.[0];
+        if (!service?.taskDefinition) {
+            throw new Error(`Service ${serviceName} not found in cluster ${clusterName}`);
+        }
 
-        const totalVersions = allVersions.length;
+        const family = this.taskDefinitionService.extractFamilyFromArn(service.taskDefinition);
+        const revisionArns = await this.taskDefinitionService.listTaskDefinitionRevisions(family);
+        const totalVersions = revisionArns.length;
         const totalPages = Math.ceil(totalVersions / limit);
         const startIndex = (page - 1) * limit;
         const endIndex = startIndex + limit;
-
-        const pageVersions = allVersions.slice(startIndex, endIndex);
+        const pageArns = revisionArns.slice(startIndex, endIndex);
 
         const versionsWithEnvVars = await Promise.all(
-            pageVersions.map(async version => {
+            pageArns.map(async arn => {
                 try {
-                    const taskDefResponse = await this.taskDefinitionService.getTaskDefinition(version.arn);
-                    const containerDef = taskDefResponse.taskDefinition?.containerDefinitions?.find(
-                        container => container.name === containerName
-                    );
+                    const taskDefResponse = await this.taskDefinitionService.getTaskDefinition(arn);
+                    const td = taskDefResponse.taskDefinition;
+                    const containerDef = td?.containerDefinitions?.find(c => c.name === containerName);
 
                     const environmentVariables: EnvironmentVariable[] =
                         containerDef?.environment?.map(env => ({
@@ -79,15 +83,24 @@ export class EnvironmentVariableVersioningService {
                         })) || [];
 
                     return {
-                        ...version,
+                        revision: td?.revision || parseInt(arn.split(':').pop() || '0', 10),
+                        arn,
+                        registeredAt: td?.registeredAt?.toISOString() || '',
+                        status: td?.status || 'UNKNOWN',
+                        family: td?.family || family,
                         environmentVariables,
                     };
                 } catch (error) {
+                    const revision = parseInt(arn.split(':').pop() || '0', 10);
                     logger.warn(
-                        `[EnvVarVersioning] Failed to get environment variables for revision ${version.revision}: ${error}`
+                        `[EnvVarVersioning] Failed to get environment variables for revision ${revision}: ${error}`
                     );
                     return {
-                        ...version,
+                        revision,
+                        arn,
+                        registeredAt: '',
+                        status: 'UNKNOWN',
+                        family,
                         environmentVariables: [],
                     };
                 }
@@ -120,14 +133,16 @@ export class EnvironmentVariableVersioningService {
             `[EnvVarVersioning] Getting environment variables from revision ${revision} for service: ${serviceName}, container: ${containerName}`
         );
 
-        const versions = await this.taskDefinitionService.getTaskDefinitionVersionsForService(clusterName, serviceName);
-        const targetVersion = versions.find(v => v.revision === revision);
-
-        if (!targetVersion) {
-            throw new Error(`Revision ${revision} not found for service ${serviceName} in cluster ${clusterName}`);
+        const serviceResponse = await this.ecsClient.send(
+            new DescribeServicesCommand({cluster: clusterName, services: [serviceName]})
+        );
+        const service = serviceResponse.services?.[0];
+        if (!service?.taskDefinition) {
+            throw new Error(`Service ${serviceName} not found in cluster ${clusterName}`);
         }
+        const family = this.taskDefinitionService.extractFamilyFromArn(service.taskDefinition);
 
-        const taskDefResponse = await this.taskDefinitionService.getTaskDefinition(targetVersion.arn);
+        const taskDefResponse = await this.taskDefinitionService.getTaskDefinition(`${family}:${revision}`);
         const containerDef = taskDefResponse.taskDefinition?.containerDefinitions?.find(
             container => container.name === containerName
         );
@@ -157,14 +172,16 @@ export class EnvironmentVariableVersioningService {
             `[EnvVarVersioning] Getting secrets from revision ${revision} for service: ${serviceName}, container: ${containerName}`
         );
 
-        const versions = await this.taskDefinitionService.getTaskDefinitionVersionsForService(clusterName, serviceName);
-        const targetVersion = versions.find(v => v.revision === revision);
-
-        if (!targetVersion) {
-            throw new Error(`Revision ${revision} not found for service ${serviceName} in cluster ${clusterName}`);
+        const serviceResponse = await this.ecsClient.send(
+            new DescribeServicesCommand({cluster: clusterName, services: [serviceName]})
+        );
+        const service = serviceResponse.services?.[0];
+        if (!service?.taskDefinition) {
+            throw new Error(`Service ${serviceName} not found in cluster ${clusterName}`);
         }
+        const family = this.taskDefinitionService.extractFamilyFromArn(service.taskDefinition);
 
-        const taskDefResponse = await this.taskDefinitionService.getTaskDefinition(targetVersion.arn);
+        const taskDefResponse = await this.taskDefinitionService.getTaskDefinition(`${family}:${revision}`);
         const containerDef = taskDefResponse.taskDefinition?.containerDefinitions?.find(
             container => container.name === containerName
         );

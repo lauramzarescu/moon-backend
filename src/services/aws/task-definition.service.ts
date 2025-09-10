@@ -1,5 +1,4 @@
 import {
-    DescribeServicesCommand,
     DescribeTaskDefinitionCommand,
     DescribeTaskDefinitionCommandOutput,
     ECSClient,
@@ -109,6 +108,7 @@ export class TaskDefinitionService {
      */
     public async listTaskDefinitionRevisions(family: string): Promise<string[]> {
         let hasMore = true; // Flag to check if there are more results using the nextToken field
+        let previousToken: string | undefined = undefined;
 
         const response = await backoffAndRetry(() =>
             this.ecsClient.send(
@@ -120,6 +120,7 @@ export class TaskDefinitionService {
             )
         );
         hasMore = response.nextToken !== undefined;
+        previousToken = response.nextToken;
 
         while (hasMore) {
             const nextResponse = await backoffAndRetry(() =>
@@ -128,11 +129,14 @@ export class TaskDefinitionService {
                         familyPrefix: family,
                         status: 'ACTIVE',
                         sort: 'DESC',
-                        nextToken: response.nextToken,
+                        nextToken: previousToken,
                     })
                 )
             );
-            hasMore = nextResponse.nextToken !== undefined;
+
+            previousToken = nextResponse.nextToken;
+            hasMore = nextResponse.nextToken !== undefined && nextResponse.nextToken !== previousToken;
+
             response.taskDefinitionArns = [
                 ...(response.taskDefinitionArns || []),
                 ...(nextResponse.taskDefinitionArns || []),
@@ -153,54 +157,5 @@ export class TaskDefinitionService {
             return familyRevision.split(':')[0];
         }
         throw new Error(`Invalid task definition ARN format: ${taskDefinitionArn}`);
-    }
-
-    /**
-     * Get task definition revisions with metadata for a service
-     */
-    public async getTaskDefinitionVersionsForService(
-        clusterName: string,
-        serviceName: string
-    ): Promise<
-        Array<{
-            revision: number;
-            arn: string;
-            registeredAt: string;
-            status: string;
-            family: string;
-        }>
-    > {
-        const serviceResponse = await backoffAndRetry(() =>
-            this.ecsClient.send(
-                new DescribeServicesCommand({
-                    cluster: clusterName,
-                    services: [serviceName],
-                })
-            )
-        );
-
-        const service = serviceResponse.services?.[0];
-        if (!service?.taskDefinition) {
-            throw new Error(`Service ${serviceName} not found in cluster ${clusterName}`);
-        }
-
-        const family = this.extractFamilyFromArn(service.taskDefinition);
-        const revisionArns = await this.listTaskDefinitionRevisions(family);
-
-        // Get detailed information for each revision
-        const revisionDetails = await Promise.all(
-            revisionArns.map(async arn => {
-                const taskDef = await this.getTaskDefinition(arn);
-                return {
-                    revision: taskDef.taskDefinition?.revision || 0,
-                    arn: arn,
-                    registeredAt: taskDef.taskDefinition?.registeredAt?.toISOString() || '',
-                    status: taskDef.taskDefinition?.status || 'UNKNOWN',
-                    family: taskDef.taskDefinition?.family || family,
-                };
-            })
-        );
-
-        return revisionDetails.sort((a, b) => b.revision - a.revision);
     }
 }
