@@ -5,6 +5,7 @@ import {Task} from '@aws-sdk/client-ecs';
 
 export interface ServiceInterface {
     name: string;
+    arn: string;
     clusterName: string;
     isClusterProduction: boolean;
     desiredCount: number;

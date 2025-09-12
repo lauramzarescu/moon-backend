@@ -58,6 +58,22 @@ export enum AuditLogEnum {
     AWS_SERVICE_DELETED = 'aws:service:deleted',
     AWS_SERVICE_RESTARTED = 'aws:service:restarted',
 
+    AWS_SERVICE_ENV_VAR_UPDATED = 'aws:service:env:var:updated',
+    AWS_SERVICE_ENV_VAR_REMOVED = 'aws:service:env:var:removed',
+    AWS_SERVICE_ENV_VAR_REPLACED = 'aws:service:env:var:replaced',
+    AWS_SERVICE_ENV_VAR_BULK_UPDATED = 'aws:service:env:var:bulk:updated',
+    AWS_SERVICE_ENV_VAR_VERSION_ROLLED_BACK = 'aws:service:env:var:version:rolled:back',
+    AWS_SERVICE_ENV_VAR_COPIED = 'aws:service:env:var:copied',
+    AWS_SERVICE_ENV_VAR_MOVED = 'aws:service:env:var:moved',
+
+    AWS_SERVICE_SECRET_UPDATED = 'aws:service:secret:updated',
+    AWS_SERVICE_SECRET_REMOVED = 'aws:service:secret:removed',
+    AWS_SERVICE_SECRET_REPLACED = 'aws:service:secret:replaced',
+    AWS_SERVICE_SECRET_BULK_UPDATED = 'aws:service:secret:bulk:updated',
+    AWS_SERVICE_SECRET_VERSION_ROLLED_BACK = 'aws:service:secret:version:rolled:back',
+    AWS_SERVICE_SECRET_COPIED = 'aws:service:secret:copied',
+    AWS_SERVICE_SECRET_MOVED = 'aws:service:secret:moved',
+
     AWS_TASK_CREATED = 'aws:task:created',
     AWS_TASK_UPDATED = 'aws:task:updated',
     AWS_TASK_DELETED = 'aws:task:deleted',

@@ -2,6 +2,7 @@ import {
     DescribeTaskDefinitionCommand,
     DescribeTaskDefinitionCommandOutput,
     ECSClient,
+    ListTaskDefinitionsCommand,
     RegisterTaskDefinitionCommand,
 } from '@aws-sdk/client-ecs';
 import {backoffAndRetry} from '../../utils/backoff.util';
@@ -100,5 +101,61 @@ export class TaskDefinitionService {
         }
 
         return newTaskDefArn;
+    }
+
+    /**
+     * List all task definition revisions for a given family
+     */
+    public async listTaskDefinitionRevisions(family: string): Promise<string[]> {
+        let hasMore = true; // Flag to check if there are more results using the nextToken field
+        let previousToken: string | undefined = undefined;
+
+        const response = await backoffAndRetry(() =>
+            this.ecsClient.send(
+                new ListTaskDefinitionsCommand({
+                    familyPrefix: family,
+                    status: 'ACTIVE',
+                    sort: 'DESC',
+                })
+            )
+        );
+        hasMore = response.nextToken !== undefined;
+        previousToken = response.nextToken;
+
+        while (hasMore) {
+            const nextResponse = await backoffAndRetry(() =>
+                this.ecsClient.send(
+                    new ListTaskDefinitionsCommand({
+                        familyPrefix: family,
+                        status: 'ACTIVE',
+                        sort: 'DESC',
+                        nextToken: previousToken,
+                    })
+                )
+            );
+
+            previousToken = nextResponse.nextToken;
+            hasMore = nextResponse.nextToken !== undefined && nextResponse.nextToken !== previousToken;
+
+            response.taskDefinitionArns = [
+                ...(response.taskDefinitionArns || []),
+                ...(nextResponse.taskDefinitionArns || []),
+            ];
+        }
+
+        return response.taskDefinitionArns || [];
+    }
+
+    /**
+     * Get task definition family name from ARN or service name
+     */
+    public extractFamilyFromArn(taskDefinitionArn: string): string {
+        // ARN format: arn:aws:ecs:region:account:task-definition/family:revision
+        const parts = taskDefinitionArn.split('/');
+        if (parts.length >= 2) {
+            const familyRevision = parts[parts.length - 1];
+            return familyRevision.split(':')[0];
+        }
+        throw new Error(`Invalid task definition ARN format: ${taskDefinitionArn}`);
     }
 }

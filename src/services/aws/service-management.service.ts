@@ -194,6 +194,12 @@ export class ServiceManagementService {
                                 currentImages: deploymentStatus.details?.currentImages || [],
                                 targetImages: deploymentStatus.details?.targetImages || [],
                             };
+                        } else {
+                            serviceData.deploymentStatus = {
+                                isStuck: false,
+                                currentImages: deploymentStatus.details?.currentImages || [],
+                                targetImages: deploymentStatus.details?.targetImages || [],
+                            };
                         }
                     })
             );
