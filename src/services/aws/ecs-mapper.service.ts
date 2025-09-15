@@ -16,6 +16,7 @@ export class ECSMapperService {
 
         return {
             name: service.serviceName ?? 'N/A',
+            arn: service.serviceArn ?? 'N/A',
             clusterName: clusterName,
             isClusterProduction,
             desiredCount: service.desiredCount ?? 0,
@@ -72,9 +73,9 @@ export class ECSMapperService {
                         })) ?? [],
                     environmentFiles: container.environmentFiles ?? [],
                     secrets:
-                        container.secrets?.map((env: {name: string; valueFrom: string}) => ({
-                            name: env.name ?? '',
-                            value: env.valueFrom ?? '',
+                        container.secrets?.map((secret: {name: string; valueFrom: string}) => ({
+                            name: secret.name ?? '',
+                            valueFrom: secret.valueFrom ?? '',
                         })) ?? [],
                 },
             })) ?? []

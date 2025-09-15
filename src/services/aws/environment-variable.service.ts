@@ -6,10 +6,7 @@ import {
 } from '@aws-sdk/client-ecs';
 import {backoffAndRetry} from '../../utils/backoff.util';
 import {TaskDefinitionService} from './task-definition.service';
-import {
-    EnvironmentVariable,
-    EnvironmentVariableOperation,
-} from '../../interfaces/aws-entities/environment-variable.interface';
+import {EnvironmentVariable, Secret} from '../../interfaces/aws-entities/environment-variable.interface';
 import logger from '../../config/logger';
 import {ContainerDefinition, TaskDefinition} from '@aws-sdk/client-ecs/dist-types/models';
 
@@ -52,56 +49,128 @@ export class EnvironmentVariableService {
     }
 
     /**
-     * Add environment variables to a service container
+     * Get secrets for a specific container in a service
+     */
+    public async getServiceSecrets(clusterName: string, serviceName: string, containerName: string): Promise<Secret[]> {
+        logger.info(`[EnvVar] Getting secrets for service: ${serviceName}, container: ${containerName}`);
+
+        const taskDefinitionArn = await this.getServiceTaskDefinitionArn(clusterName, serviceName);
+        const taskDefResponse = await this.taskDefinitionService.getTaskDefinition(taskDefinitionArn);
+
+        const containerDef = taskDefResponse.taskDefinition?.containerDefinitions?.find(
+            container => container.name === containerName
+        );
+
+        if (!containerDef) {
+            throw new Error(`Container ${containerName} not found in service ${serviceName}`);
+        }
+
+        return (
+            containerDef.secrets?.map(secret => ({
+                name: secret.name || '',
+                valueFrom: secret.valueFrom || '',
+            })) || []
+        );
+    }
+
+    /**
+     * Add environment variables and/or secrets to a service container
      */
     public async addEnvironmentVariables(
         clusterName: string,
         serviceName: string,
         containerName: string,
-        newEnvironmentVariables: EnvironmentVariable[]
-    ): Promise<string> {
+        newEnvironmentVariables: EnvironmentVariable[] = [],
+        newSecrets: Secret[] = []
+    ): Promise<{
+        taskDefinitionArn: string;
+        addedVariables: number;
+        addedSecrets: number;
+    }> {
         logger.info(
-            `[EnvVar] Adding ${newEnvironmentVariables.length} environment variables to service: ${serviceName}, container: ${containerName}`
+            `[EnvVar] Adding ${newEnvironmentVariables.length} environment variables and ${newSecrets.length} secrets to service: ${serviceName}, container: ${containerName}`
         );
 
-        const currentEnvVars = await this.getServiceEnvironmentVariables(clusterName, serviceName, containerName);
+        const [currentEnvVars, currentSecrets] = await Promise.all([
+            this.getServiceEnvironmentVariables(clusterName, serviceName, containerName),
+            this.getServiceSecrets(clusterName, serviceName, containerName),
+        ]);
 
         // Check for duplicate variable names
-        const existingNames = new Set(currentEnvVars.map(env => env.name));
-        const duplicates = newEnvironmentVariables.filter(env => existingNames.has(env.name));
+        const existingEnvNames = new Set(currentEnvVars.map(env => env.name));
+        const duplicateEnvVars = newEnvironmentVariables.filter(env => existingEnvNames.has(env.name));
+        const nonDuplicateEnvVars = newEnvironmentVariables.filter(env => !existingEnvNames.has(env.name));
 
-        if (duplicates.length > 0) {
-            throw new Error(`Environment variables already exist: ${duplicates.map(d => d.name).join(', ')}`);
+        if (duplicateEnvVars.length > 0) {
+            logger.warn(`Environment variables already exist: ${duplicateEnvVars.map(d => d.name).join(', ')}`);
         }
 
-        const updatedEnvVars = [...currentEnvVars, ...newEnvironmentVariables];
-        return await this.updateServiceEnvironmentVariables(clusterName, serviceName, containerName, updatedEnvVars);
+        // Check for duplicate secret names
+        const existingSecretNames = new Set(currentSecrets.map(secret => secret.name));
+        const duplicateSecrets = newSecrets.filter(secret => existingSecretNames.has(secret.name));
+        const nonDuplicateSecrets = newSecrets.filter(secret => !existingSecretNames.has(secret.name));
+
+        if (duplicateSecrets.length > 0) {
+            logger.warn(`Secrets already exist: ${duplicateSecrets.map(d => d.name).join(', ')}`);
+        }
+
+        const updatedEnvVars = [...currentEnvVars, ...nonDuplicateEnvVars];
+        const updatedSecrets = [...currentSecrets, ...nonDuplicateSecrets];
+
+        const taskDefinitionArn = await this.updateServiceEnvironmentVariablesAndSecrets(
+            clusterName,
+            serviceName,
+            containerName,
+            updatedEnvVars,
+            updatedSecrets
+        );
+
+        return {
+            taskDefinitionArn,
+            addedVariables: nonDuplicateEnvVars.length,
+            addedSecrets: nonDuplicateSecrets.length,
+        };
     }
 
     /**
-     * Edit existing environment variables in a service container
+     * Edit existing environment variables and/or secrets in a service container
      */
     public async editEnvironmentVariables(
         clusterName: string,
         serviceName: string,
         containerName: string,
-        updatedEnvironmentVariables: EnvironmentVariable[]
-    ): Promise<string> {
+        updatedEnvironmentVariables: EnvironmentVariable[] = [],
+        updatedSecrets: Secret[] = []
+    ): Promise<{
+        taskDefinitionArn: string;
+        updatedVariables: number;
+        updatedSecrets: number;
+    }> {
         logger.info(
-            `[EnvVar] Editing ${updatedEnvironmentVariables.length} environment variables for service: ${serviceName}, container: ${containerName}`
+            `[EnvVar] Editing ${updatedEnvironmentVariables.length} environment variables and ${updatedSecrets.length} secrets for service: ${serviceName}, container: ${containerName}`
         );
 
-        const currentEnvVars = await this.getServiceEnvironmentVariables(clusterName, serviceName, containerName);
+        const [currentEnvVars, currentSecrets] = await Promise.all([
+            this.getServiceEnvironmentVariables(clusterName, serviceName, containerName),
+            this.getServiceSecrets(clusterName, serviceName, containerName),
+        ]);
 
-        // Create a map for quick lookup
+        // Handle environment variables
         const updatedEnvMap = new Map(updatedEnvironmentVariables.map(env => [env.name, env.value]));
+        const currentEnvNames = new Set(currentEnvVars.map(env => env.name));
+        const missingEnvVars = updatedEnvironmentVariables.filter(env => !currentEnvNames.has(env.name));
 
-        // Check if all variables to edit exist
-        const currentNames = new Set(currentEnvVars.map(env => env.name));
-        const missingVars = updatedEnvironmentVariables.filter(env => !currentNames.has(env.name));
+        if (missingEnvVars.length > 0) {
+            throw new Error(`Environment variables do not exist: ${missingEnvVars.map(v => v.name).join(', ')}`);
+        }
 
-        if (missingVars.length > 0) {
-            throw new Error(`Environment variables do not exist: ${missingVars.map(v => v.name).join(', ')}`);
+        // Handle secrets
+        const updatedSecretsMap = new Map(updatedSecrets.map(secret => [secret.name, secret.valueFrom]));
+        const currentSecretNames = new Set(currentSecrets.map(secret => secret.name));
+        const missingSecrets = updatedSecrets.filter(secret => !currentSecretNames.has(secret.name));
+
+        if (missingSecrets.length > 0) {
+            throw new Error(`Secrets do not exist: ${missingSecrets.map(s => s.name).join(', ')}`);
         }
 
         // Update existing variables
@@ -110,37 +179,85 @@ export class EnvironmentVariableService {
             value: updatedEnvMap.has(env.name) ? updatedEnvMap.get(env.name)! : env.value,
         }));
 
-        return await this.updateServiceEnvironmentVariables(clusterName, serviceName, containerName, finalEnvVars);
+        // Update existing secrets
+        const finalSecrets = currentSecrets.map(secret => ({
+            name: secret.name,
+            valueFrom: updatedSecretsMap.has(secret.name) ? updatedSecretsMap.get(secret.name)! : secret.valueFrom,
+        }));
+
+        const taskDefinitionArn = await this.updateServiceEnvironmentVariablesAndSecrets(
+            clusterName,
+            serviceName,
+            containerName,
+            finalEnvVars,
+            finalSecrets
+        );
+
+        return {
+            taskDefinitionArn,
+            updatedVariables: updatedEnvironmentVariables.length,
+            updatedSecrets: updatedSecrets.length,
+        };
     }
 
     /**
-     * Remove environment variables from a service container
+     * Remove environment variables and/or secrets from a service container
      */
     public async removeEnvironmentVariables(
         clusterName: string,
         serviceName: string,
         containerName: string,
-        variableNames: string[]
-    ): Promise<string> {
+        variableNames: string[] = [],
+        secretNames: string[] = []
+    ): Promise<{
+        taskDefinitionArn: string;
+        removedVariables: number;
+        removedSecrets: number;
+    }> {
         logger.info(
-            `[EnvVar] Removing environment variables: ${variableNames.join(', ')} from service: ${serviceName}, container: ${containerName}`
+            `[EnvVar] Removing environment variables: ${variableNames.join(', ')} and secrets: ${secretNames.join(', ')} from service: ${serviceName}, container: ${containerName}`
         );
 
-        const currentEnvVars = await this.getServiceEnvironmentVariables(clusterName, serviceName, containerName);
+        const [currentEnvVars, currentSecrets] = await Promise.all([
+            this.getServiceEnvironmentVariables(clusterName, serviceName, containerName),
+            this.getServiceSecrets(clusterName, serviceName, containerName),
+        ]);
 
         // Check if all variables to remove exist
-        const currentNames = new Set(currentEnvVars.map(env => env.name));
-        const missingVars = variableNames.filter(name => !currentNames.has(name));
+        const currentEnvNames = new Set(currentEnvVars.map(env => env.name));
+        const missingVars = variableNames.filter(name => !currentEnvNames.has(name));
 
         if (missingVars.length > 0) {
             throw new Error(`Environment variables do not exist: ${missingVars.join(', ')}`);
         }
 
-        // Filter out the variables to remove
-        const namesToRemove = new Set(variableNames);
-        const filteredEnvVars = currentEnvVars.filter(env => !namesToRemove.has(env.name));
+        // Check if all secrets to remove exist
+        const currentSecretNames = new Set(currentSecrets.map(secret => secret.name));
+        const missingSecrets = secretNames.filter(name => !currentSecretNames.has(name));
 
-        return await this.updateServiceEnvironmentVariables(clusterName, serviceName, containerName, filteredEnvVars);
+        if (missingSecrets.length > 0) {
+            throw new Error(`Secrets do not exist: ${missingSecrets.join(', ')}`);
+        }
+
+        // Filter out the variables and secrets to remove
+        const envNamesToRemove = new Set(variableNames);
+        const secretNamesToRemove = new Set(secretNames);
+        const filteredEnvVars = currentEnvVars.filter(env => !envNamesToRemove.has(env.name));
+        const filteredSecrets = currentSecrets.filter(secret => !secretNamesToRemove.has(secret.name));
+
+        const taskDefinitionArn = await this.updateServiceEnvironmentVariablesAndSecrets(
+            clusterName,
+            serviceName,
+            containerName,
+            filteredEnvVars,
+            filteredSecrets
+        );
+
+        return {
+            taskDefinitionArn,
+            removedVariables: variableNames.length,
+            removedSecrets: secretNames.length,
+        };
     }
 
     /**
@@ -165,48 +282,25 @@ export class EnvironmentVariableService {
     }
 
     /**
-     * Bulk update environment variables for multiple containers in a service
+     * Replace environment variables and secrets for a service container
      */
-    public async bulkUpdateEnvironmentVariables(
+    public async replaceEnvironmentVariablesAndSecrets(
         clusterName: string,
         serviceName: string,
-        operations: EnvironmentVariableOperation[]
+        containerName: string,
+        environmentVariables: EnvironmentVariable[],
+        secrets: Secret[]
     ): Promise<string> {
         logger.info(
-            `[EnvVar] Bulk updating environment variables for ${operations.length} containers in service: ${serviceName}`
+            `[EnvVar] Replacing environment variables and secrets for service: ${serviceName}, container: ${containerName}`
         );
 
-        const taskDefinitionArn = await this.getServiceTaskDefinitionArn(clusterName, serviceName);
-        const taskDefResponse = await this.taskDefinitionService.getTaskDefinition(taskDefinitionArn);
-
-        if (!taskDefResponse.taskDefinition) {
-            throw new Error(`Task definition ${taskDefinitionArn} not found`);
-        }
-
-        const containerDefs = [...(taskDefResponse.taskDefinition.containerDefinitions || [])] as ContainerDefinition[];
-
-        // Update each container's environment variables
-        for (const operation of operations) {
-            const containerIndex = containerDefs.findIndex(container => container.name === operation.containerName);
-
-            if (containerIndex === -1) {
-                throw new Error(`Container ${operation.containerName} not found in task definition`);
-            }
-
-            containerDefs[containerIndex] = {
-                ...containerDefs[containerIndex],
-                environment: operation.environmentVariables.map(env => ({
-                    name: env.name,
-                    value: env.value,
-                })),
-            };
-        }
-
-        return await this.registerNewTaskDefinitionWithUpdatedContainers(
-            taskDefResponse.taskDefinition,
-            containerDefs,
+        return await this.updateServiceEnvironmentVariablesAndSecrets(
             clusterName,
-            serviceName
+            serviceName,
+            containerName,
+            environmentVariables,
+            secrets
         );
     }
 
@@ -239,6 +333,91 @@ export class EnvironmentVariableService {
             environment: environmentVariables.map(env => ({
                 name: env.name,
                 value: env.value,
+            })),
+        };
+
+        return await this.registerNewTaskDefinitionWithUpdatedContainers(
+            taskDefResponse.taskDefinition,
+            containerDefs,
+            clusterName,
+            serviceName
+        );
+    }
+
+    /**
+     * Private method to update both environment variables and secrets for a single container
+     */
+    private async updateServiceEnvironmentVariablesAndSecrets(
+        clusterName: string,
+        serviceName: string,
+        containerName: string,
+        environmentVariables: EnvironmentVariable[],
+        secrets: Secret[]
+    ): Promise<string> {
+        const taskDefinitionArn = await this.getServiceTaskDefinitionArn(clusterName, serviceName);
+        const taskDefResponse = await this.taskDefinitionService.getTaskDefinition(taskDefinitionArn);
+
+        if (!taskDefResponse.taskDefinition) {
+            throw new Error(`Task definition ${taskDefinitionArn} not found`);
+        }
+
+        const containerDefs = [...(taskDefResponse.taskDefinition.containerDefinitions || [])] as ContainerDefinition[];
+        const containerIndex = containerDefs.findIndex(container => container.name === containerName);
+
+        if (containerIndex === -1) {
+            throw new Error(`Container ${containerName} not found in task definition`);
+        }
+
+        // Update both environment variables and secrets
+        containerDefs[containerIndex] = {
+            ...containerDefs[containerIndex],
+            environment: environmentVariables.map(env => ({
+                name: env.name,
+                value: env.value,
+            })),
+            secrets: secrets.map(secret => ({
+                name: secret.name,
+                valueFrom: secret.valueFrom,
+            })),
+        };
+
+        return await this.registerNewTaskDefinitionWithUpdatedContainers(
+            taskDefResponse.taskDefinition,
+            containerDefs,
+            clusterName,
+            serviceName
+        );
+    }
+
+    /**
+     * Private method to update secrets for a single container
+     */
+    private async updateServiceSecrets(
+        clusterName: string,
+        serviceName: string,
+        containerName: string,
+        secrets: Secret[]
+    ): Promise<string> {
+        const taskDefinitionArn = await this.getServiceTaskDefinitionArn(clusterName, serviceName);
+        const taskDefResponse = await this.taskDefinitionService.getTaskDefinition(taskDefinitionArn);
+
+        if (!taskDefResponse.taskDefinition) {
+            throw new Error(`Task definition ${taskDefinitionArn} not found`);
+        }
+
+        const containerDefs = [...(taskDefResponse.taskDefinition.containerDefinitions || [])] as ContainerDefinition[];
+        const containerIndex = containerDefs.findIndex(container => container.name === containerName);
+
+        if (containerIndex === -1) {
+            throw new Error(`Container ${containerName} not found in task definition`);
+        }
+
+        // Update only the secrets, preserve environment variables and other properties
+        containerDefs[containerIndex] = {
+            ...containerDefs[containerIndex],
+            secrets: secrets.map(secret => ({
+                name: secret.name,
+                valueFrom: secret.valueFrom,
             })),
         };
 

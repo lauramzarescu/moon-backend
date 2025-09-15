@@ -12,13 +12,28 @@ export class AuditLogWidgetsController {
         try {
             const user = res.locals.user as User;
             const tz = req.query.tz?.toString() || 'UTC';
-            const filters = PaginationHandler.translateFilters(req.query, 'auditLog');
+            const startDate = moment.tz(req.query?.filter_startDate, tz) || null;
+            const endDate = moment.tz(req.query?.filter_endDate, tz) || null;
 
-            const params = {
+            if (!startDate || !endDate) {
+                res.status(400).json({message: 'Start and end date are required'});
+                return;
+            }
+
+            // Calculate the duration of the current period
+            const currentPeriodDuration = endDate.diff(startDate, 'days') + 1; // +1 to include both start and end dates
+
+            // Calculate previous period dates
+            const previousStartDate = startDate.clone().subtract(currentPeriodDuration, 'days');
+            const previousEndDate = startDate.clone().subtract(1, 'day');
+
+            // Get current period count
+            const currentFilters = PaginationHandler.translateFilters(req.query, 'auditLog');
+            const currentParams = {
                 page: 1,
-                limit: 1, // minimize query; we only need the count
+                limit: 1,
                 filters: {
-                    ...filters,
+                    ...currentFilters,
                     action: AuditLogEnum.AWS_SERVICE_UPDATED,
                 },
                 tz,
@@ -26,8 +41,51 @@ export class AuditLogWidgetsController {
                 order: 'desc' as const,
             };
 
-            const result = await this.auditHelper.getAuthorizedPaginated(user, params);
-            res.json({count: result.meta.total});
+            // Get previous period count
+            const previousQuery = {
+                ...req.query,
+                filter_startDate: previousStartDate.format('YYYY-MM-DD'),
+                filter_endDate: previousEndDate.format('YYYY-MM-DD'),
+            };
+            const previousFilters = PaginationHandler.translateFilters(previousQuery, 'auditLog');
+            const previousParams = {
+                page: 1,
+                limit: 1,
+                filters: {
+                    ...previousFilters,
+                    action: AuditLogEnum.AWS_SERVICE_UPDATED,
+                },
+                tz,
+                orderBy: 'createdAt',
+                order: 'desc' as const,
+            };
+
+            const [currentResult, previousResult] = await Promise.all([
+                this.auditHelper.getAuthorizedPaginated(user, currentParams),
+                this.auditHelper.getAuthorizedPaginated(user, previousParams),
+            ]);
+
+            const currentCount = currentResult.meta.total;
+            const previousCount = previousResult.meta.total;
+
+            let delta: number | null = null;
+            if (previousCount > 0) {
+                delta = ((currentCount - previousCount) / previousCount) * 100;
+                delta = Math.round(delta * 100) / 100;
+            } else if (currentCount > 0) {
+                // If previous count is 0 but current count > 0, it's infinite growth
+                // We'll represent this as null to indicate infinite growth
+                delta = null;
+            } else {
+                // Both are 0, no change
+                delta = 0;
+            }
+
+            res.json({
+                count: currentCount,
+                delta: delta,
+                previousCount: previousCount,
+            });
         } catch (error: any) {
             res.status(500).json({message: error.message || 'Failed to get deployments count'});
         }

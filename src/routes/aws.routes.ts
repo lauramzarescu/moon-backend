@@ -52,6 +52,43 @@ router.delete(
     environmentVariableController.removeEnvironmentVariables
 );
 
+// Versioning endpoints
+router.get(
+    '/services/environment-variables/versions',
+    isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_READ]),
+    environmentVariableController.getVersionsList
+);
+
+router.get(
+    '/services/environment-variables/version',
+    isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_READ]),
+    environmentVariableController.getVariablesFromVersion
+);
+
+router.post(
+    '/services/environment-variables/copy',
+    isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_WRITE]),
+    environmentVariableController.copyVariablesBetweenServices
+);
+
+router.post(
+    '/services/environment-variables/move',
+    isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_WRITE]),
+    environmentVariableController.moveVariablesBetweenServices
+);
+
+router.post(
+    '/services/environment-variables/rollback',
+    isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_WRITE]),
+    environmentVariableController.rollbackToVersion
+);
+
+router.get(
+    '/services/environment-variables/compare',
+    isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_READ]),
+    environmentVariableController.compareVersions
+);
+
 // router.put(
 //     '/services/environment-variables/replace',
 //     isAuthenticatedGuard([PermissionEnum.AWS_SERVICE_WRITE]),

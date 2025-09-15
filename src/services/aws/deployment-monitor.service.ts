@@ -56,7 +56,6 @@ export class DeploymentMonitorService {
 
             const service = serviceResponse.services[0];
 
-            // Check if there's an ongoing deployment
             if (!service.deployments || service.deployments.length <= 1) {
                 return {isStuck: false}; // No deployment in progress
             }
