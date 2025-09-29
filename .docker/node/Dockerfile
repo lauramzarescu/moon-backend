@@ -2,11 +2,6 @@
 FROM node:22.4-alpine AS builder
 
 RUN apk add --no-cache \
-    git \
-    wget curl \
-    nginx \
-    supervisor \
-    postgresql-client \
     python3 \
     make \
     g++ \
@@ -17,46 +12,34 @@ WORKDIR /build
 # Copy only package files first to leverage Docker cache
 COPY package*.json ./
 
-# Install dependencies
+# Install dependencies (build from source for native modules like bcrypt)
 RUN npm ci --build-from-source
 
 # Copy source code
 COPY . .
 
-# Generate Prisma types
-RUN npm run prisma-types
+# Generate Prisma types and build TypeScript
+RUN npm run prisma-types && npm run build
 
-RUN npm run build
-
-# Production stage
+# Runtime stage (minimal)
 FROM node:22.4-alpine
-
-# Install only runtime dependencies
-RUN apk add --no-cache \
-    git \
-    curl \
-    nginx \
-    supervisor \
-    postgresql-client \
-    && mkdir -p /var/lib/nginx/logs/ \
-    && install -m 777 /dev/null /var/lib/nginx/logs/error.log \
-    && chown -R nobody: /run/ /var/lib/nginx/ /var/log/nginx/ \
-    && install -m 777 /dev/null /tmp/php_slow.log
 
 WORKDIR /code
 
-# Copy only necessary files from builder
+# Copy production artifacts and dependencies from builder
 COPY --from=builder --chown=node /build/node_modules /code/node_modules
 COPY --from=builder --chown=node /build/package*.json /code/
 COPY --from=builder --chown=node /build/dist /code/dist
-#COPY --from=builder --chown=node /build/sc /code/prisma
 
-# Copy application code
-COPY --chown=node . /code/
+# Copy only what is needed at runtime (seed script relies on TS source)
+COPY --chown=node src/prisma /code/src/prisma
 
-# Copy startup script
+# Startup script
 COPY .docker/node/start.sh /start.sh
 RUN chmod +x /start.sh
+
+# Drop privileges
+USER node
 
 EXPOSE 8000
 
