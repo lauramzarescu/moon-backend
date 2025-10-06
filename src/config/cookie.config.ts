@@ -1,13 +1,11 @@
 import {CookieOptions, Response} from 'express';
 
-const isProduction = process.env.NODE_ENV === 'production';
-
 /**
  * Auth cookie configuration (24 hours)
  */
 export const AUTH_COOKIE_CONFIG: CookieOptions = {
-    httpOnly: isProduction,
-    secure: isProduction,
+    httpOnly: true,
+    secure: true,
     sameSite: 'strict',
     path: '/',
     maxAge: 24 * 60 * 60 * 1000,
@@ -17,8 +15,8 @@ export const AUTH_COOKIE_CONFIG: CookieOptions = {
  * Temporary cookie configuration (5 minutes - for 2FA)
  */
 export const TEMP_COOKIE_CONFIG: CookieOptions = {
-    httpOnly: isProduction,
-    secure: isProduction,
+    httpOnly: true,
+    secure: true,
     sameSite: 'strict',
     path: '/',
     maxAge: 5 * 60 * 1000,
@@ -37,7 +35,7 @@ export class CookieHelper {
     static clearAuthCookie(res: Response): void {
         res.clearCookie('token', {
             httpOnly: true,
-            secure: isProduction,
+            secure: true,
             sameSite: 'strict',
             path: '/',
         });
@@ -47,7 +45,7 @@ export class CookieHelper {
         this.clearAuthCookie(res);
         res.clearCookie('auth', {
             httpOnly: true,
-            secure: isProduction,
+            secure: true,
             sameSite: 'strict',
             path: '/',
         });
