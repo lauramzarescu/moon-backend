@@ -13,6 +13,7 @@ import * as speakeasy from 'speakeasy';
 import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 import {AuditLogHelper} from '../audit-log/audit-log.helper';
 import logger from '../../config/logger';
+import {CookieHelper} from '../../config/cookie.config';
 
 export class SamlController {
     static samlConfigRepository = new SamlConfigRepository(prisma);
@@ -67,10 +68,7 @@ export class SamlController {
 
                     const token = AuthService.createToken(user);
 
-                    res.cookie('token', token, {
-                        secure: process.env.NODE_ENV === 'production',
-                        sameSite: 'strict',
-                    });
+                    CookieHelper.setAuthCookie(res, token);
 
                     res.redirect(process.env.APP_URL || '/');
                     return;
@@ -171,8 +169,7 @@ export class SamlController {
                 return;
             }
 
-            res.clearCookie('token');
-            res.clearCookie('auth');
+            CookieHelper.clearAllAuthCookies(res);
 
             req.session.destroy(() => {
                 res.status(200).json('Logout successful');

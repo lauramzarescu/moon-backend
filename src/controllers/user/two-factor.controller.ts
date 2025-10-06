@@ -17,7 +17,7 @@ import {AuthService} from '../../services/auth.service';
 import {EmailService} from '../../services/email.service';
 import logger from '../../config/logger';
 import {TwoFactorHelper} from './helpers/two-factor.helper';
-import moment = require('moment');
+import {CookieHelper} from '../../config/cookie.config';
 
 export class TwoFactorController {
     static userRepository = new UserRepository(prisma);
@@ -103,7 +103,7 @@ export class TwoFactorController {
 
     static verifySession2FA = async (req: express.Request, res: express.Response) => {
         try {
-            const tempToken = req.headers.authorization;
+            const tempToken = req.cookies.token;
             if (!tempToken) {
                 res.status(400).json({message: 'No temporary token provided'});
                 return;
@@ -142,11 +142,7 @@ export class TwoFactorController {
             await TwoFactorHelper.updateVerifiedDevices(user.id, req);
             const fullToken = AuthService.createToken(user);
 
-            res.cookie('token', fullToken, {
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'strict',
-                expires: moment().add(24, 'h').toDate(),
-            });
+            CookieHelper.setAuthCookie(res, fullToken);
 
             res.json({
                 success: true,
@@ -390,11 +386,7 @@ export class TwoFactorController {
             await TwoFactorHelper.updateVerifiedDevices(user.id, req);
             const fullToken = AuthService.createToken(user);
 
-            res.cookie('token', fullToken, {
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'strict',
-                expires: moment().add(24, 'h').toDate(),
-            });
+            CookieHelper.setAuthCookie(res, fullToken);
 
             res.json({
                 success: true,

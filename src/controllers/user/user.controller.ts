@@ -8,9 +8,6 @@ import {
     usersImportRequestSchema,
     userUpdateSchema,
 } from './schemas/user.schema';
-import {AuthService} from '../../services/auth.service';
-import {UserHelper} from './helpers/helper';
-import {PaginationHandler} from '../../utils/pagination.util';
 import {prisma} from '../../config/db.config';
 import bcrypt from 'bcrypt';
 import {User} from '@prisma/client';
@@ -31,11 +28,15 @@ export class UserController {
     static getUserDetails = async (req: express.Request, res: express.Response) => {
         try {
             const user = res.locals.user as User;
-
+            const token = req.cookies.token;
             const me = userDetailsResponseSchema.parse(user);
+
             me.name = user.name || user.nameID || 'N/A';
 
-            res.json(me);
+            res.json({
+                ...me,
+                token: token,
+            });
         } catch (error: any) {
             res.status(500).json({message: error.message});
         }
@@ -45,25 +46,6 @@ export class UserController {
         try {
             const users = await this.userRepository.getAll({role: 'asc'});
             res.json(users);
-        } catch (error: any) {
-            res.status(500).json({message: error.message});
-        }
-    };
-
-    static getAllPaginated = async (req: express.Request, res: express.Response) => {
-        try {
-            const token = AuthService.decodeToken(req.headers.authorization);
-            const filters = PaginationHandler.translateFilters(req.query, 'user');
-
-            const paginatedUsers = await UserHelper.getAuthorizedPaginated(token.userId, {
-                page: Number(req.query.page) || 1,
-                limit: Number(req.query.limit) || 50,
-                filters,
-                orderBy: String(req.query.orderBy || 'createdAt'),
-                order: (req.query.order as 'asc' | 'desc') || 'desc',
-            });
-
-            res.json(paginatedUsers);
         } catch (error: any) {
             res.status(500).json({message: error.message});
         }

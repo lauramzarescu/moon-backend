@@ -26,7 +26,12 @@ router.use(userInfoMiddleware);
 /**
  * Execute on each page refresh. It will execute the actions triggered by page_refresh type.
  */
-router.get('/refresh', isAuthenticatedGuard([PermissionEnum.ACTIONS_READ]), ActionsController.refresh);
+router.get(
+    '/refresh',
+    userInfoMiddleware,
+    isAuthenticatedGuard([PermissionEnum.ACTIONS_READ]),
+    ActionsController.refresh
+);
 
 /**
  * Export actions as JSON file

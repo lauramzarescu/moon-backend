@@ -6,11 +6,11 @@ import logger from '../config/logger';
 
 export const userInfoMiddleware = async (req: express.Request, res: Response, next: NextFunction) => {
     try {
-        if (!req.headers.authorization) {
+        if (!req.cookies.token) {
             return next();
         }
 
-        const token = AuthService.decodeToken(req.headers.authorization);
+        const token = AuthService.decodeToken(req.cookies.token);
         const userRepository = new UserRepository(prisma);
 
         res.locals.user = await userRepository.getOneWhere({id: token.userId});

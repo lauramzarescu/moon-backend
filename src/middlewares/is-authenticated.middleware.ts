@@ -15,15 +15,24 @@ export const isAuthenticated = (req: express.Request, res: express.Response, nex
 
 export const isAuthenticatedGuard = (permissions: PermissionEnum[] = []) => {
     return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+        let token: string | undefined;
+
+        // Check Authorization header first
         const authHeader = req.headers.authorization;
         if (authHeader && authHeader.startsWith('Bearer ')) {
-            const token = authHeader.substring(7);
+            token = authHeader.substring(7);
+        }
 
+        // If no header, check cookie
+        if (!token && req.cookies && req.cookies.token) {
+            token = req.cookies.token;
+        }
+
+        if (token) {
             try {
                 const decoded = AuthService.decodeToken(token);
 
                 if (!decoded) {
-                    logger.info('invalid token');
                     res.status(401).json({message: 'Invalid token'});
                     return;
                 }
@@ -31,7 +40,6 @@ export const isAuthenticatedGuard = (permissions: PermissionEnum[] = []) => {
                 const validPermissions = AuthService.tokenHasPermissions(decoded, permissions);
 
                 if (!validPermissions) {
-                    logger.info('invalid permissions');
                     res.status(403).json({message: 'Invalid permissions'});
                     return;
                 }
@@ -39,7 +47,6 @@ export const isAuthenticatedGuard = (permissions: PermissionEnum[] = []) => {
                 next();
                 return;
             } catch (error: any) {
-                logger.info('invalid token');
                 res.status(401).json({message: 'Invalid token'});
                 return;
             }

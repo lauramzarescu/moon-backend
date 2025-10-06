@@ -15,7 +15,7 @@ export class ServicesConfigController {
 
     static getAll = async (req: express.Request, res: express.Response) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
+            const token = AuthService.decodeToken(req.cookies.token);
             const user = await this.userRepository.getOneWhere({id: token.userId});
 
             const awsServiceConfig = await this.servicesConfigRepository.findOneWhere({
