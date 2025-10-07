@@ -20,7 +20,6 @@ export const TEMP_COOKIE_CONFIG: CookieOptions = {
     sameSite: 'strict',
     path: '/',
     maxAge: 5 * 60 * 1000,
-    domain: process.env.COOKIE_SAFE_DOMAIN || 'localhost',
 };
 
 export class CookieHelper {
