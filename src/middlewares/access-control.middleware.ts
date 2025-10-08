@@ -30,7 +30,7 @@ export const checkAccessControlGuard = async (req: Request, res: Response, next:
 
         next();
     } catch (error: any) {
-        logger.info(error);
+        logger.error(error);
         res.status(403).json({message: 'Access denied'});
         return;
     }
@@ -70,7 +70,7 @@ export const checkAccessControlPasswordGuard = async (req: Request, res: Respons
 
         next();
     } catch (error: any) {
-        logger.info(error);
+        logger.error(error);
         res.status(403).json({message: 'Access denied'});
         return;
     }

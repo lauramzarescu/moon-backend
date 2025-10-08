@@ -7,6 +7,7 @@ import {AuditLogHelper} from '../audit-log/audit-log.helper';
 import {UserRepository} from '../../repositories/user/user.repository';
 import {prisma} from '../../config/db.config';
 import {User} from '@prisma/client';
+import logger from '../../config/logger';
 
 export class ServicesController {
     private readonly ecsService: ECSService;
@@ -97,7 +98,7 @@ export class ServicesController {
                 },
             });
         } catch (error: any) {
-            console.log(error);
+            logger.error(error);
             const errorResponse = {
                 error: 'Failed to update service container image',
                 details: error,

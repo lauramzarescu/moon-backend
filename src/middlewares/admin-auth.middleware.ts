@@ -8,7 +8,7 @@ export const requireOrganizationAdminGuard = async (req: Request, res: Response,
     try {
         const userRepository = new UserRepository(prisma);
 
-        const token = AuthService.decodeToken(req.headers.authorization);
+        const token = AuthService.decodeToken(req.cookies.token);
         const requesterUser = await userRepository.getOneWhere({id: token.userId});
 
         const targetUser = await userRepository.getOneWhere(req.params.userId);

@@ -15,7 +15,7 @@ export class ServicesConfigController {
 
     static getAll = async (req: express.Request, res: express.Response) => {
         try {
-            const token = AuthService.decodeToken(req.headers.authorization);
+            const token = AuthService.decodeToken(req.cookies.token);
             const user = await this.userRepository.getOneWhere({id: token.userId});
 
             const awsServiceConfig = await this.servicesConfigRepository.findOneWhere({
@@ -26,7 +26,7 @@ export class ServicesConfigController {
 
             res.json({aws: parsedAwsServiceConfig} as ServicesConfigResponseInterface);
         } catch (error: any) {
-            logger.info(error);
+            logger.error(error);
             res.status(500).json({error: error.message});
         }
     };

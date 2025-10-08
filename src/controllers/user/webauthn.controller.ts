@@ -12,7 +12,7 @@ import {AuthService} from '../../services/auth.service';
 import {AuditLogHelper} from '../audit-log/audit-log.helper';
 import {UserRepository} from '../../repositories/user/user.repository';
 import {prisma} from '../../config/db.config';
-import moment from 'moment-timezone';
+import {CookieHelper} from '../../config/cookie.config';
 
 export class WebauthnController {
     static auditHelper = new AuditLogHelper();
@@ -98,7 +98,7 @@ export class WebauthnController {
 
     static startWebAuthnAuthentication = async (req: express.Request, res: express.Response) => {
         try {
-            const tempToken = req.headers.authorization;
+            const tempToken = req.cookies.token;
             if (!tempToken) {
                 res.status(400).json({message: 'No temporary token provided'});
                 return;
@@ -164,11 +164,7 @@ export class WebauthnController {
             await TwoFactorHelper.updateVerifiedDevices(user.id, req);
             const fullToken = AuthService.createToken(user);
 
-            res.cookie('token', fullToken, {
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'strict',
-                expires: moment().add(24, 'h').toDate(),
-            });
+            CookieHelper.setAuthCookie(res, fullToken);
 
             res.json({
                 success: true,

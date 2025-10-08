@@ -10,7 +10,7 @@ const router = express.Router();
 /** Login with SAML */
 router.get('/saml/login', SamlController.login);
 
-/** Login with email and password */
+/** Login with email and password - with rate limiting */
 router.post('/login', checkAccessControlPasswordGuard, AuthController.login);
 
 router.post('/callback', SamlController.callback);

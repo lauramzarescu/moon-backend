@@ -5,6 +5,6 @@ export NODE_OPTIONS=--max-old-space-size=4096
 
 npm run prisma-migration
 
-npx ts-node src/prisma/seeds/local-init.seed.ts
+node dist/prisma/seeds/local-init.seed.js
 
-npm run start
+node dist/index.js

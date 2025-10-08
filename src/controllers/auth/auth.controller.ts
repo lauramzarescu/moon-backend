@@ -11,6 +11,7 @@ import {AuthType, LoginType} from '@prisma/client';
 import logger from '../../config/logger';
 import {OrganizationRepository} from '../../repositories/organization/organization.repository';
 import {TwoFactorHelper} from '../user/helpers/two-factor.helper';
+import {CookieHelper} from '../../config/cookie.config';
 
 export class AuthController {
     static userRepository = new UserRepository(prisma);
@@ -53,11 +54,7 @@ export class AuthController {
                 const _2FASetupValues = await TwoFactorHelper.generateTwoFactorSetup(user, organization);
                 const tempToken = AuthService.createTemporaryToken(user);
 
-                res.cookie('token', tempToken, {
-                    secure: process.env.NODE_ENV === 'production',
-                    sameSite: 'strict',
-                    expires: moment().add(5, 'm').toDate(),
-                });
+                CookieHelper.setTempCookie(res, tempToken);
 
                 res.json({
                     status: 'success',
@@ -82,11 +79,7 @@ export class AuthController {
                 const hasOtpYubikey = otpCredentials.length > 0;
                 const highSecurityAvailable = hasTotp || hasWebAuthn;
 
-                res.cookie('token', tempToken, {
-                    secure: process.env.NODE_ENV === 'production',
-                    sameSite: 'strict',
-                    expires: moment().add(5, 'm').toDate(),
-                });
+                CookieHelper.setTempCookie(res, tempToken);
 
                 res.json({
                     status: 'success',
@@ -106,11 +99,7 @@ export class AuthController {
 
             const token = AuthService.createToken(user);
 
-            res.cookie('token', token, {
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'strict',
-                expires: moment().add(24, 'h').toDate(),
-            });
+            CookieHelper.setAuthCookie(res, token);
 
             res.json({
                 status: 'success',
