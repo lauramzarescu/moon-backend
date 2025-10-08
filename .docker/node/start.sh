@@ -7,4 +7,4 @@ npm run prisma-migration
 
 node dist/prisma/seeds/local-init.seed.js
 
-npm run start
+node dist/index.js
