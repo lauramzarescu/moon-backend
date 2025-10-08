@@ -7,13 +7,14 @@ import {AuthService} from '../../services/auth.service';
 import {UserRepository} from '../../repositories/user/user.repository';
 import {samlConfigDeleteWith2FASchema, samlConfigSchema, samlConfigUpdateSchema} from './saml-config.schema';
 import {SamlService} from '../../services/saml.service';
-import {Strategy} from 'passport-saml';
 import {prisma} from '../../config/db.config';
 import * as speakeasy from 'speakeasy';
 import {AuditLogEnum} from '../../enums/audit-log/audit-log.enum';
 import {AuditLogHelper} from '../audit-log/audit-log.helper';
 import logger from '../../config/logger';
 import {CookieHelper} from '../../config/cookie.config';
+import {Strategy} from '@node-saml/passport-saml';
+import {RequestWithUser} from '@node-saml/passport-saml/lib/types';
 
 export class SamlController {
     static samlConfigRepository = new SamlConfigRepository(prisma);
@@ -123,35 +124,29 @@ export class SamlController {
             const samlStrategy = (passport as any)._strategies[strategyName] as Strategy;
             const requesterUser = req.user as User;
 
-            if (!samlStrategy?.logout) {
+            if (!samlStrategy || typeof samlStrategy.logout !== 'function') {
                 this.logoutProcess(req, res);
                 return;
             }
 
-            samlStrategy.logout(
-                {
-                    user: requesterUser,
-                    samlLogoutRequest: req,
-                } as any,
-                (err: Error | null, url: string | null | undefined) => {
-                    if (err) {
-                        res.status(500).send('Error during SAML logout');
+            samlStrategy.logout(<RequestWithUser>(<unknown>req), (err: Error | null, url?: string | null) => {
+                if (err) {
+                    res.status(500).send('Error during SAML logout');
+                    return;
+                }
+
+                req.logout(() => {
+                    res.clearCookie('token');
+                    res.clearCookie('auth');
+
+                    if (url) {
+                        res.status(200).json({url});
                         return;
                     }
 
-                    req.logout(() => {
-                        res.clearCookie('token');
-                        res.clearCookie('auth');
-
-                        if (url) {
-                            res.status(200).json({url});
-                            return;
-                        }
-
-                        res.redirect(`${originUrl}/login`);
-                    });
-                }
-            );
+                    res.redirect(`${originUrl}/login`);
+                });
+            });
         } catch (error: any) {
             logger.error('Logout error:', error);
             res.status(500).send('Error during logout');

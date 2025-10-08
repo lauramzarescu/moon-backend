@@ -1,5 +1,5 @@
 import passport from 'passport';
-import {Strategy as SamlStrategy} from 'passport-saml';
+import {Strategy as SamlStrategy} from '@node-saml/passport-saml';
 import {LoginType, SamlConfig} from '@prisma/client';
 import {SamlService} from '../services/saml.service';
 import {SamlConfigRepository} from '../repositories/saml-config/saml-config.repository';
@@ -41,40 +41,48 @@ const createSamlStrategy = async (samlConfig: SamlConfig, strategyName: string) 
         cert: samlConfig.serviceProviderX509Certificate,
         privateKey: samlConfig.serviceProviderPrivateKey.split(String.raw`\n`).join('\n'),
 
+        idpCert: results.certificate || [],
         forceAuthn: true,
-        validateInResponseTo: true, // For secure logout
         disableRequestedAuthnContext: true,
         acceptedClockSkewMs: -1,
+        passReqToCallback: true,
     };
 
     passport.use(
         strategyName,
-        new SamlStrategy(dynamicSamlConfig, async (profile: any, done: any) => {
-            try {
-                const accessControlHelper = new AccessControlHelper();
+        new SamlStrategy(
+            dynamicSamlConfig,
+            async (req: any, profile: any, done: any) => {
+                try {
+                    const accessControlHelper = new AccessControlHelper();
 
-                const isAllowed = await accessControlHelper.checkAccess(profile.email, samlConfig.organizationId);
-                if (!isAllowed) {
-                    throw new Error('Access denied');
+                    const isAllowed = await accessControlHelper.checkAccess(profile.email, samlConfig.organizationId);
+                    if (!isAllowed) {
+                        throw new Error('Access denied');
+                    }
+
+                    const user = await userRepository.upsert(
+                        {
+                            email: profile.email,
+                            name: profile.displayName,
+                            nameID: profile.nameID,
+                            nameIDFormat: profile.nameIDFormat,
+                            sessionIndex: profile.sessionIndex,
+                            loginType: LoginType.saml,
+                            organizationId: samlConfig.organizationId,
+                        },
+                        {email: profile.email}
+                    );
+                    return done(null, user);
+                } catch (err) {
+                    done(err);
                 }
-
-                const user = await userRepository.upsert(
-                    {
-                        email: profile.email,
-                        name: profile.displayName,
-                        nameID: profile.nameID,
-                        nameIDFormat: profile.nameIDFormat,
-                        sessionIndex: profile.sessionIndex,
-                        loginType: LoginType.saml,
-                        organizationId: samlConfig.organizationId,
-                    },
-                    {email: profile.email}
-                );
-                return done(null, user);
-            } catch (err) {
-                done(err);
+            },
+            (req: any, _profile: any, done: any) => {
+                // Return the same logged-in user so the library can verify logout matches
+                return done(null, req.user);
             }
-        })
+        ) as any
     );
 
     return (passport as any)._strategies[strategyName];
