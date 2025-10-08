@@ -51,7 +51,7 @@ export class TwoFactorController {
                 },
             });
         } catch (error: any) {
-            logger.info(error);
+            logger.error(error);
             res.status(500).json({message: error.message});
         }
     };

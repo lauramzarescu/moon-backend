@@ -26,7 +26,7 @@ export class ServicesConfigController {
 
             res.json({aws: parsedAwsServiceConfig} as ServicesConfigResponseInterface);
         } catch (error: any) {
-            logger.info(error);
+            logger.error(error);
             res.status(500).json({error: error.message});
         }
     };
