@@ -35,7 +35,7 @@ COPY --from=builder --chown=node /build/dist /code/dist
 COPY --chown=node src/prisma /code/src/prisma
 
 # Copy email templates
-COPY --chown=node src/templates /code/src/templates
+COPY --chown=node src/templates /code/dist/templates
 
 # Startup script
 COPY .docker/node/start.sh /start.sh
