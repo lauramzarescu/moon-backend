@@ -1,5 +1,4 @@
 import {PrismaClient} from '@prisma/client';
-import {Pool} from 'pg';
 import logger from './logger';
 
 // Database configuration from environment variables
@@ -26,12 +25,6 @@ const dbConfig: DbConfig = {
     connectionTimeoutMillis: 2000,
 };
 
-// Construct the database URL directly
-// const DATABASE_URL = `postgresql://${dbConfig.user}:${dbConfig.password}@${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`;
-
-// Create a PostgreSQL pool for direct database access if needed
-const pool = new Pool(dbConfig);
-
 // Create a Prisma client instance using the constructed URL
 const prisma = new PrismaClient({
     datasources: {
@@ -40,38 +33,6 @@ const prisma = new PrismaClient({
         },
     },
 });
-
-// Connection with retry logic for the PostgreSQL pool
-async function connectWithRetry(maxRetries = 5, retryInterval = 5000): Promise<Pool> {
-    let retries = maxRetries;
-
-    while (retries > 0) {
-        try {
-            const client = await pool.connect();
-            logger.info('Successfully connected to PostgreSQL database');
-            client.release();
-            return pool;
-        } catch (err) {
-            retries -= 1;
-            logger.error(`Failed to connect to PostgreSQL. Retries left: ${retries}`);
-
-            if (err instanceof Error) {
-                logger.error(`Error details: ${err.message}`);
-            }
-
-            if (retries === 0) {
-                logger.error('Max retries reached. Could not connect to PostgreSQL');
-                throw new Error('Failed to connect to database after multiple attempts');
-            }
-
-            // Wait before retrying
-            await new Promise(resolve => setTimeout(resolve, retryInterval));
-        }
-    }
-
-    // This should never be reached due to the throw above, but TypeScript needs it
-    throw new Error('Failed to connect to database');
-}
 
 // Initialize Prisma client with retry logic
 async function initPrisma(maxRetries = 5, retryInterval = 5000): Promise<PrismaClient> {
@@ -106,10 +67,9 @@ async function initPrisma(maxRetries = 5, retryInterval = 5000): Promise<PrismaC
 }
 
 // Gracefully disconnect from the database
-async function disconnect(): Promise<void> {
+async function disconnectPrisma(): Promise<void> {
     await prisma.$disconnect();
-    await pool.end();
     logger.info('Disconnected from database');
 }
 
-export {prisma, pool, dbConfig, connectWithRetry, initPrisma, disconnect};
+export {prisma, dbConfig, initPrisma, disconnectPrisma};
