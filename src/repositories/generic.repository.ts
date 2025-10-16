@@ -23,15 +23,13 @@ export abstract class GenericRepository<T> {
             ...(dateFilters || {}),
         };
 
-        const [total, data] = await Promise.all([
+        const [total, data] = await this.prisma.$transaction([
             this.repository.count({where: whereCondition}),
             this.repository.findMany({
                 where: whereCondition,
                 skip,
                 take,
-                orderBy: {
-                    [orderBy]: order,
-                },
+                orderBy: {[orderBy]: order},
             }),
         ]);
 
@@ -51,16 +49,14 @@ export abstract class GenericRepository<T> {
             ...(dateFilters || {}),
         };
 
-        const [total, data] = await Promise.all([
+        const [total, data] = await this.prisma.$transaction([
             this.repository.count({where: whereCondition}),
             this.repository.findMany({
                 where: whereCondition,
                 include,
                 skip,
                 take,
-                orderBy: {
-                    [orderBy]: order,
-                },
+                orderBy: {[orderBy]: order},
             }),
         ]);
 
