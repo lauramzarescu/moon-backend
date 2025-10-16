@@ -134,6 +134,10 @@ export class EnvironmentVariableService {
 
     /**
      * Edit existing environment variables and/or secrets in a service container
+     * Supports renaming keys via optional `originalName` on each item.
+     * - If `originalName` is provided and differs from `name`, the key will be renamed.
+     * - If `originalName` is omitted, `name` is treated as the key to update.
+     * - For secrets, the same logic applies using optional `originalName`.
      */
     public async editEnvironmentVariables(
         clusterName: string,
@@ -155,35 +159,90 @@ export class EnvironmentVariableService {
             this.getServiceSecrets(clusterName, serviceName, containerName),
         ]);
 
-        // Handle environment variables
-        const updatedEnvMap = new Map(updatedEnvironmentVariables.map(env => [env.name, env.value]));
-        const currentEnvNames = new Set(currentEnvVars.map(env => env.name));
-        const missingEnvVars = updatedEnvironmentVariables.filter(env => !currentEnvNames.has(env.name));
+        // ----- Environment variables (support rename) -----
+        const currentEnvMap = new Map(currentEnvVars.map(e => [e.name, e.value]));
 
-        if (missingEnvVars.length > 0) {
-            throw new Error(`Environment variables do not exist: ${missingEnvVars.map(v => v.name).join(', ')}`);
+        type EnvUpdate = {originalName: string; newName: string; newValue: string};
+        const envUpdates: EnvUpdate[] = updatedEnvironmentVariables.map((env: any) => ({
+            originalName: env && typeof env === 'object' && env.originalName ? String(env.originalName) : env.name,
+            newName: env.name,
+            newValue: env.value,
+        }));
+
+        // Validate existence of originals
+        const missingEnv = envUpdates.filter(u => !currentEnvMap.has(u.originalName)).map(u => u.originalName);
+        if (missingEnv.length > 0) {
+            throw new Error(`Environment variables do not exist: ${Array.from(new Set(missingEnv)).join(', ')}`);
         }
 
-        // Handle secrets
-        const updatedSecretsMap = new Map(updatedSecrets.map(secret => [secret.name, secret.valueFrom]));
-        const currentSecretNames = new Set(currentSecrets.map(secret => secret.name));
-        const missingSecrets = updatedSecrets.filter(secret => !currentSecretNames.has(secret.name));
+        // Validate duplicate targets and conflicts
+        const targetEnvNames = new Set<string>();
+        const originalsEnvSet = new Set(envUpdates.map(u => u.originalName));
+        for (const u of envUpdates) {
+            if (targetEnvNames.has(u.newName)) {
+                throw new Error(`Duplicate target variable name in request: ${u.newName}`);
+            }
+            targetEnvNames.add(u.newName);
 
+            if (u.newName !== u.originalName) {
+                const targetExistsInCurrent = currentEnvMap.has(u.newName);
+                const targetBeingRenamedAway = originalsEnvSet.has(u.newName);
+                if (targetExistsInCurrent && !targetBeingRenamedAway) {
+                    throw new Error(`Cannot rename to existing variable '${u.newName}' that is not being renamed away`);
+                }
+            }
+        }
+
+        // Apply updates (rename/value changes)
+        for (const u of envUpdates) {
+            const oldVal = currentEnvMap.get(u.originalName)!;
+            currentEnvMap.delete(u.originalName);
+            currentEnvMap.set(u.newName, u.newValue ?? oldVal);
+        }
+
+        const finalEnvVars = Array.from(currentEnvMap.entries()).map(([name, value]) => ({name, value}));
+
+        // ----- Secrets (support rename) -----
+        const currentSecretMap = new Map(currentSecrets.map(s => [s.name, s.valueFrom]));
+
+        type SecretUpdate = {originalName: string; newName: string; newValueFrom: string};
+        const secretUpdates: SecretUpdate[] = updatedSecrets.map((s: any) => ({
+            originalName: s && typeof s === 'object' && s.originalName ? String(s.originalName) : s.name,
+            newName: s.name,
+            newValueFrom: s.valueFrom,
+        }));
+
+        const missingSecrets = secretUpdates
+            .filter(u => !currentSecretMap.has(u.originalName))
+            .map(u => u.originalName);
         if (missingSecrets.length > 0) {
-            throw new Error(`Secrets do not exist: ${missingSecrets.map(s => s.name).join(', ')}`);
+            throw new Error(`Secrets do not exist: ${Array.from(new Set(missingSecrets)).join(', ')}`);
         }
 
-        // Update existing variables
-        const finalEnvVars = currentEnvVars.map(env => ({
-            name: env.name,
-            value: updatedEnvMap.has(env.name) ? updatedEnvMap.get(env.name)! : env.value,
-        }));
+        const targetSecretNames = new Set<string>();
+        const originalsSecretSet = new Set(secretUpdates.map(u => u.originalName));
+        for (const u of secretUpdates) {
+            if (targetSecretNames.has(u.newName)) {
+                throw new Error(`Duplicate target secret name in request: ${u.newName}`);
+            }
+            targetSecretNames.add(u.newName);
 
-        // Update existing secrets
-        const finalSecrets = currentSecrets.map(secret => ({
-            name: secret.name,
-            valueFrom: updatedSecretsMap.has(secret.name) ? updatedSecretsMap.get(secret.name)! : secret.valueFrom,
-        }));
+            if (u.newName !== u.originalName) {
+                const targetExistsInCurrent = currentSecretMap.has(u.newName);
+                const targetBeingRenamedAway = originalsSecretSet.has(u.newName);
+                if (targetExistsInCurrent && !targetBeingRenamedAway) {
+                    throw new Error(`Cannot rename to existing secret '${u.newName}' that is not being renamed away`);
+                }
+            }
+        }
+
+        for (const u of secretUpdates) {
+            const oldValFrom = currentSecretMap.get(u.originalName)!;
+            currentSecretMap.delete(u.originalName);
+            currentSecretMap.set(u.newName, u.newValueFrom ?? oldValFrom);
+        }
+
+        const finalSecrets = Array.from(currentSecretMap.entries()).map(([name, valueFrom]) => ({name, valueFrom}));
 
         const taskDefinitionArn = await this.updateServiceEnvironmentVariablesAndSecrets(
             clusterName,

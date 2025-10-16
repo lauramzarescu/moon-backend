@@ -2,11 +2,13 @@ import {z} from 'zod';
 import {BulkOperationType} from '../../enums/environment-variable/environment-variable.enum';
 
 export const environmentVariableSchema = z.object({
+    originalName: z.string().min(1, 'Original environment variable name is required').optional(),
     name: z.string().min(1, 'Environment variable name is required'),
     value: z.string(),
 });
 
 export const secretSchema = z.object({
+    originalName: z.string().min(1, 'Original secret name is required').optional(),
     name: z.string().min(1, 'Secret name is required'),
     valueFrom: z.string().min(1, 'Secret ARN is required'),
 });
