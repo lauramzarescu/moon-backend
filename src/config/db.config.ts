@@ -25,11 +25,37 @@ const dbConfig: DbConfig = {
     connectionTimeoutMillis: 2000,
 };
 
+// Build a Prisma-compatible DATABASE_URL with optional pooling params and PgBouncer flag
+function getDatabaseUrl(): string {
+    const base = process.env.DATABASE_URL || '';
+    const addParam = (url: string, key: string, value?: string) => {
+        if (!value) return url;
+        const has = new RegExp(`[?&]${key}=`, 'i').test(url);
+        if (has) return url;
+        const delim = url.includes('?') ? '&' : '?';
+        return `${url}${delim}${key}=${encodeURIComponent(value)}`;
+    };
+
+    let url = base;
+
+    // Enable Prisma PgBouncer mode if requested
+    const enablePgBouncer = (process.env.PGBOUNCER_ENABLED || 'false').toLowerCase() === 'true';
+    if (enablePgBouncer) {
+        url = addParam(url, 'pgbouncer', 'true');
+    }
+
+    // Optional Prisma pool tuning
+    url = addParam(url, 'connection_limit', process.env.PRISMA_CONNECTION_LIMIT || '5');
+    url = addParam(url, 'pool_timeout', process.env.PRISMA_POOL_TIMEOUT_MS || '10000');
+
+    return url;
+}
+
 // Create a Prisma client instance using the constructed URL
 const prisma = new PrismaClient({
     datasources: {
         db: {
-            url: process.env.DATABASE_URL,
+            url: getDatabaseUrl(),
         },
     },
 });
@@ -72,4 +98,4 @@ async function disconnectPrisma(): Promise<void> {
     logger.info('Disconnected from database');
 }
 
-export {prisma, dbConfig, initPrisma, disconnectPrisma};
+export {prisma, dbConfig, initPrisma, disconnectPrisma, getDatabaseUrl};

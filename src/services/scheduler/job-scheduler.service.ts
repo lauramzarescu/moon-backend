@@ -7,6 +7,7 @@ import {prisma} from '../../config/db.config';
 import {TriggerType} from '@prisma/client';
 import {ActionHelper} from '../../controllers/action/action.helper';
 import {getPgBossInstance} from '../../config/pg-boss.config';
+import {getDatabaseUrl} from '../../config/db.config';
 import logger from '../../config/logger';
 
 // Define an enum for the queue prefix
@@ -22,7 +23,8 @@ export class JobSchedulerService {
     constructor() {
         this.actionRepository = new ActionRepository(prisma);
         this.actionHelper = new ActionHelper();
-        this.boss = getPgBossInstance() || new PgBoss({connectionString: process.env.DATABASE_URL});
+        const fallbackBoss = new PgBoss(getDatabaseUrl());
+        this.boss = getPgBossInstance() || fallbackBoss;
         this.boss.on('error', error => logger.error('PgBoss error:', error));
     }
 
