@@ -1,4 +1,5 @@
 import {CookieOptions, Response} from 'express';
+import {isProd} from '../index';
 
 /**
  * Auth cookie configuration (24 hours)
@@ -6,7 +7,7 @@ import {CookieOptions, Response} from 'express';
 export const AUTH_COOKIE_CONFIG: CookieOptions = {
     httpOnly: true,
     secure: true,
-    sameSite: 'strict',
+    sameSite: isProd ? 'strict' : 'none',
     path: '/',
     maxAge: 24 * 60 * 60 * 1000,
 };
@@ -17,7 +18,7 @@ export const AUTH_COOKIE_CONFIG: CookieOptions = {
 export const TEMP_COOKIE_CONFIG: CookieOptions = {
     httpOnly: true,
     secure: true,
-    sameSite: 'strict',
+    sameSite: isProd ? 'strict' : 'none',
     path: '/',
     maxAge: 5 * 60 * 1000,
 };

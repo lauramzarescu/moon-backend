@@ -14,7 +14,7 @@ import userRoute from './routes/user.route';
 import accessControlRoute from './routes/access-control.route';
 import awsRoutes from './routes/aws.routes';
 import healthcheckRoute from './routes/healthcheck.route';
-import {initPrisma} from './config/db.config';
+import {disconnectPrisma, initPrisma} from './config/db.config';
 import {extractIpMiddleware} from './middlewares/extract-ip.middleware';
 import actionRoute from './routes/action.route';
 import {JobSchedulerService} from './services/scheduler/job-scheduler.service';
@@ -30,6 +30,8 @@ dotenv.config();
 
 const router = Router();
 const jobScheduler = new JobSchedulerService();
+
+export const isProd = process.env.NODE_ENV !== 'dev';
 
 app.use(helmet());
 app.use((req, res, next) => {
@@ -58,8 +60,8 @@ app.use(
         saveUninitialized: false,
         cookie: {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: isProd,
+            sameSite: isProd ? 'strict' : 'none',
             maxAge: 24 * 60 * 60 * 1000,
         },
     })
@@ -109,5 +111,8 @@ initPrisma(5, 5000)
 process.on('SIGTERM', async () => {
     await jobScheduler.stop();
     await closePgBossInstance();
+
+    await disconnectPrisma();
+
     process.exit(0);
 });

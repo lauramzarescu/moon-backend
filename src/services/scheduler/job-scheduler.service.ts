@@ -3,7 +3,7 @@ import moment from 'moment-timezone';
 
 import {ActionDefinition, ScheduledJobConfig} from '../../controllers/action/action.schema';
 import {ActionRepository} from '../../repositories/action/action.repository';
-import {prisma} from '../../config/db.config';
+import {getDatabaseUrl, prisma} from '../../config/db.config';
 import {TriggerType} from '@prisma/client';
 import {ActionHelper} from '../../controllers/action/action.helper';
 import {getPgBossInstance} from '../../config/pg-boss.config';
@@ -22,8 +22,10 @@ export class JobSchedulerService {
     constructor() {
         this.actionRepository = new ActionRepository(prisma);
         this.actionHelper = new ActionHelper();
-        this.boss = getPgBossInstance() || new PgBoss({connectionString: process.env.DATABASE_URL});
-        this.boss.on('error', error => logger.error('PgBoss error:', error));
+        const fallbackBoss = new PgBoss(getDatabaseUrl());
+        this.boss = getPgBossInstance() || fallbackBoss;
+
+        this.boss.on('error', error => logger.error('PgBoss error', {error}));
     }
 
     /**
@@ -38,7 +40,7 @@ export class JobSchedulerService {
             // Fetch existing schedules relevant to this service and register workers
             await this.registerWorkersForExistingSchedules();
         } catch (error: any) {
-            logger.error('Failed to initialize job scheduler:', error);
+            logger.error('Failed to initialize job scheduler', {error});
             throw error; // Re-throw to indicate initialization failure
         }
     }
@@ -57,7 +59,7 @@ export class JobSchedulerService {
             if (error.code === '42P07' || (error.message && error.message.includes('already exists'))) {
                 logger.info(`Queue ${queueName} already exists, continuing...`);
             } else {
-                logger.error(`Error creating queue ${queueName}:`, error);
+                logger.error(`Error creating queue ${queueName}`, {error});
                 throw new Error(`Failed to ensure queue exists: ${error.message}`);
             }
         }
@@ -87,7 +89,7 @@ export class JobSchedulerService {
             }
             logger.info(`Registered workers for ${registeredCount} existing schedules.`);
         } catch (error: any) {
-            logger.error('Error fetching schedules or registering workers on startup:', error);
+            logger.error('Error fetching schedules or registering workers on startup', {error});
         }
     }
 
@@ -137,7 +139,7 @@ export class JobSchedulerService {
             logger.info(`Successfully processed job ${job.id} for action ${actionId}`);
             await this.boss.complete(job.name, job.id);
         } catch (error: any) {
-            logger.error(`Error executing scheduled job ${job.id} for action ${actionId}:`, error);
+            logger.error(`Error executing scheduled job ${job.id} for action ${actionId}`, {error});
             // Fail the job so pg-boss handles retries based on queue config
             await this.boss.fail(job.id, error.message || 'Unknown error during execution');
         }
@@ -179,7 +181,7 @@ export class JobSchedulerService {
             }
             return parts.join(' ');
         } catch (e) {
-            logger.error('Error converting cron timezone, using original:', e);
+            logger.error('Error converting cron timezone, using original', {error: e});
             return cronExpression;
         }
     }
@@ -228,7 +230,7 @@ export class JobSchedulerService {
 
             return scheduleName; // Return the unique schedule name
         } catch (error: any) {
-            logger.error(`Error scheduling job or registering worker for ${scheduleName}:`, error);
+            logger.error(`Error scheduling job or registering worker for ${scheduleName}`, {error});
             throw new Error(`Failed to schedule job: ${error.message}`);
         }
     }
@@ -250,7 +252,7 @@ export class JobSchedulerService {
             await this.boss.offWork(scheduleName);
             logger.info(`Unregistered worker for queue ${scheduleName}`);
         } catch (error: any) {
-            logger.error(`Error unscheduling job or stopping worker for ${scheduleName}:`, error);
+            logger.error(`Error unscheduling job or stopping worker for ${scheduleName}`, {error});
             throw new Error(`Failed to cancel job: ${error.message}`);
         }
     }

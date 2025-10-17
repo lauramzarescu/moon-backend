@@ -1,11 +1,13 @@
 import PgBoss from 'pg-boss';
 import logger from './logger';
+import {getDatabaseUrl} from './db.config';
 
 let pgBossInstance: PgBoss | null = null;
 
 export function getPgBossInstance(): PgBoss {
     if (!pgBossInstance) {
-        pgBossInstance = new PgBoss(process.env.DATABASE_URL as string);
+        const connectionString = getDatabaseUrl();
+        pgBossInstance = new PgBoss(connectionString);
     }
     return pgBossInstance;
 }

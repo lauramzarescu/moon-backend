@@ -34,6 +34,9 @@ COPY --from=builder --chown=node /build/dist /code/dist
 # Copy only what is needed at runtime (seed script relies on TS source)
 COPY --chown=node src/prisma /code/src/prisma
 
+# Copy email templates
+COPY --chown=node src/templates /code/dist/templates
+
 # Startup script
 COPY .docker/node/start.sh /start.sh
 RUN chmod +x /start.sh
