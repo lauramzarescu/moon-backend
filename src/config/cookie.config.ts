@@ -8,7 +8,7 @@ const isProd = process.env.NODE_ENV !== 'dev';
 export const AUTH_COOKIE_CONFIG: CookieOptions = {
     httpOnly: true,
     secure: isProd,
-    sameSite: isProd ? 'strict' : 'lax',
+    sameSite: isProd ? 'strict' : 'none',
     path: '/',
     maxAge: 24 * 60 * 60 * 1000,
 };
@@ -19,7 +19,7 @@ export const AUTH_COOKIE_CONFIG: CookieOptions = {
 export const TEMP_COOKIE_CONFIG: CookieOptions = {
     httpOnly: true,
     secure: isProd,
-    sameSite: isProd ? 'strict' : 'lax',
+    sameSite: isProd ? 'strict' : 'none',
     path: '/',
     maxAge: 5 * 60 * 1000,
 };
