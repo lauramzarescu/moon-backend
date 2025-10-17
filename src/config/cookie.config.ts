@@ -1,12 +1,14 @@
 import {CookieOptions, Response} from 'express';
 
+const isProd = process.env.NODE_ENV !== 'dev';
+
 /**
  * Auth cookie configuration (24 hours)
  */
 export const AUTH_COOKIE_CONFIG: CookieOptions = {
     httpOnly: true,
-    secure: true,
-    sameSite: process.env.NODE_ENV === 'dev' ? 'none' : 'strict',
+    secure: isProd,
+    sameSite: isProd ? 'strict' : 'lax',
     path: '/',
     maxAge: 24 * 60 * 60 * 1000,
 };
@@ -16,8 +18,8 @@ export const AUTH_COOKIE_CONFIG: CookieOptions = {
  */
 export const TEMP_COOKIE_CONFIG: CookieOptions = {
     httpOnly: true,
-    secure: true,
-    sameSite: process.env.NODE_ENV === 'dev' ? 'none' : 'strict',
+    secure: isProd,
+    sameSite: isProd ? 'strict' : 'lax',
     path: '/',
     maxAge: 5 * 60 * 1000,
 };
