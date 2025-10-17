@@ -31,6 +31,8 @@ dotenv.config();
 const router = Router();
 const jobScheduler = new JobSchedulerService();
 
+export const isProd = process.env.NODE_ENV !== 'dev';
+
 app.use(helmet());
 app.use((req, res, next) => {
     res.header('X-Frame-Options', 'DENY');
@@ -58,8 +60,8 @@ app.use(
         saveUninitialized: false,
         cookie: {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: isProd,
+            sameSite: isProd ? 'strict' : 'none',
             maxAge: 24 * 60 * 60 * 1000,
         },
     })

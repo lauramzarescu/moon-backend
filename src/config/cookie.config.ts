@@ -1,6 +1,5 @@
 import {CookieOptions, Response} from 'express';
-
-const isProd = process.env.NODE_ENV !== 'dev';
+import {isProd} from '../index';
 
 /**
  * Auth cookie configuration (24 hours)
